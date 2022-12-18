@@ -40,8 +40,8 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], clock_frequency: 
 
     // Safety: `init` is safe when
     // * only called once --> the global INITIALIZED flag is set, and we panic above if called twice
-    // * HEAP_SIZE > 0 --> asserted below
-    assert!(heap_memory.len() > 0);
+    // * Heap is not empty, see the assert
+    assert!(!heap_memory.is_empty());
     unsafe {ALLOCATOR.init(heap_memory.as_ptr().addr(), heap_memory.len())}
 
     let gpio = nrf51_hal::gpio::p0::Parts::new(nrf51_peripherals.GPIO);

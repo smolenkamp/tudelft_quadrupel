@@ -52,6 +52,7 @@ pub(crate) fn initialize(uart: nrf51_pac::UART0, nvic: &mut NVIC) {
     })
 }
 
+/// Checks if the UART is initialized
 pub fn is_initialized() -> bool {
     UART.lock().is_initialized()
 }

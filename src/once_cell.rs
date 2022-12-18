@@ -27,10 +27,13 @@ impl<T> OnceCell<T> {
         self.v = Some(value)
     }
 
+    /// Check if the [`once_cell`] is already initialized
     pub fn is_initialized(&self) -> bool {
         self.v.is_some()
     }
 
+    /// Uninitialize the once_cell.
+    /// note: you probably don't want this
     pub fn uninitialize(&mut self) {
         self.v = None;
     }

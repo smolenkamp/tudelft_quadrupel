@@ -11,7 +11,7 @@ pub struct Mutex<T> {
 
 // SAFETY: it is safe to share a Mutex between interrupts and
 // other code. That's because there is only one thread, and the
-// only way to access what's in a Mutex is by locking it, disabling
+// only way to access what is in a Mutex is by locking it, disabling
 // interrupts. That means there are two cases:
 
 // 1. We are in normal code, there can be no interrupt (since we turned those off)
@@ -50,13 +50,16 @@ impl<T> Mutex<T> {
         }
     }
 
-    /// Some types perform their own synchronization, and it's entirely
-    /// safe to modify them without needing any critical section.
-    ///
-    /// Similar, some types are never used from within an interrupt, and
-    /// are thus safe to modify.
-    ///
-    /// This is obviously unsafe, because not all types support this.
+    /// This function gets a reference to the inner `T` _without_ locking the lock.
+    /// This is inherently unsafe.
+    /// 
+    /// # Safety 
+    /// This function is only safe if you can guarantee that nothing is
+    /// mutating this or holding a lock while this reference exists.
+    /// 
+    /// This generally can be used in the following cases:
+    /// * You only access this from within interrupts, as interrupts themselves can not be interrupted
+    /// * You only access this outside of interrupts, as interrupts don't break the mutex guarantees
     pub unsafe fn no_critical_section_lock(&self) -> &mut T {
         &mut *self.inner.get()
     }
@@ -81,7 +84,7 @@ impl<T> Deref for LockGuard<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        self.inner
     }
 }
 

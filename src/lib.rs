@@ -1,5 +1,13 @@
 #![no_std]
 #![feature(strict_provenance)]
+#![deny(missing_docs)]
+#![deny(warnings)]
+#![deny(unused_import_braces)]
+#![deny(unused_results)]
+#![deny(trivial_casts)]
+#![deny(trivial_numeric_casts)]
+#![deny(unused_qualifications)]
+//! # tudelft quadrupel support library
 
 extern crate alloc;
 pub extern crate nrf51_hal;

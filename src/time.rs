@@ -96,7 +96,7 @@ pub(crate) fn initialize(clock: RTC0, clock_frequency: u8) {
     // it on nanoseconds instead of seconds so we don't get a decimal number
     let period = ((prescaler as u64 + 1) * 1000 * 1000 * 1000) / 32_768u64;
 
-    rtc.initialize((Rtc::new(clock, prescaler as u32).unwrap(), period));
+    rtc.initialize((Rtc::new(clock, prescaler).unwrap(), period));
 
     rtc.0.enable_counter();
 }

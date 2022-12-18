@@ -2,7 +2,10 @@
 name = "tudelft-quadrupel"
 version = "0.1.0"
 edition = "2021"
-authors = ["Jonathan Dönszelmann <jonabent@gmail.com>", "Victor Roest <victor@xirion.net>"]
+authors = [
+    "Jonathan Dönszelmann <jonabent@gmail.com>",
+    "Victor Roest <victor@xirion.net>",
+]
 license = "MIT"
 description = "Hardware support library for the quadrupel drone project (embedded systems lab)."
 
@@ -15,4 +18,4 @@ alloc-cortex-m = "0.4.3"
 cortex-m-rt = "0.7.2"
 nrf51-hal = "0.16.0"
 nrf51-pac = "0.12.2"
-void = {version="1.0.2", default-features = false}
+void = { version = "1.0.2", default-features = false }
