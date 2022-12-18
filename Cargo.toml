@@ -9,3 +9,10 @@ description = "Hardware support library for the quadrupel drone project (embedde
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ringbuffer = "0.11.1"
+cortex-m = "0.7.6"
+alloc-cortex-m = "0.4.3"
+cortex-m-rt = "0.7.2"
+nrf51-hal = "0.16.0"
+nrf51-pac = "0.12.2"
+void = {version="1.0.2", default-features = false}
