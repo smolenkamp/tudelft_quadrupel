@@ -8,6 +8,8 @@ use nrf51_hal::gpio::{Disconnected, Output, PushPull};
 use nrf51_hal::spi::{Frequency, Pins};
 use nrf51_hal::Spi;
 use nrf51_pac::SPI1;
+use crate::mutex::Mutex;
+use crate::once_cell::OnceCell;
 
 const WRSR: u8 = 0x01;
 const BYTEWRITE: u8 = 0x02;
@@ -18,6 +20,8 @@ const WREN: u8 = 0x06;
 const EWSR: u8 = 0x50;
 const CHIP_ERASE: u8 = 0x60;
 const AAI: u8 = 0xAF;
+
+static FLASH: Mutex<OnceCell<SpiFlash>> = Mutex::new(OnceCell::uninitialized());
 
 #[derive(Debug)]
 pub enum FlashError {
@@ -44,8 +48,7 @@ pub struct SpiFlash {
     pin_cs: P0_17<Output<PushPull>>,
 }
 
-impl SpiFlash {
-    pub fn new(
+    pub fn initialize(
         spi1: SPI1,
         pin_cs: P0_17<Disconnected>,
         pin_miso: P0_18<Disconnected>,
@@ -53,7 +56,7 @@ impl SpiFlash {
         pin_hold: P0_13<Disconnected>,
         pin_sck: P0_11<Disconnected>,
         pin_mosi: P0_09<Disconnected>,
-    ) -> Result<Self, FlashError> {
+    ) -> Result<(), FlashError> {
         let spi = Spi::new(
             spi1,
             Pins {
@@ -68,54 +71,59 @@ impl SpiFlash {
         let pin_hold = pin_hold.into_push_pull_output(Level::High);
         let pin_cs = pin_cs.into_push_pull_output(Level::High);
 
-        let mut spi_flash = SpiFlash {
+        let mut spi_flash = FLASH.lock();
+        spi_flash.initialize(SpiFlash {
             spi,
             _pin_wp: pin_wp,
             _pin_hold: pin_hold,
             pin_cs,
-        };
-        spi_flash.flash_enable_wsr()?;
-        spi_flash.flash_set_wrsr()?;
-        spi_flash.flash_chip_erase()?;
-        spi_flash.flash_write_enable()?;
-        return Ok(spi_flash);
+        });
+        flash_enable_wsr()?;
+        flash_set_wrsr()?;
+        flash_chip_erase()?;
+        flash_write_enable()?;
+        return Ok(());
     }
 
-    fn spi_master_tx_rx(&mut self, tx_data: &[u8], rx_data: &mut [u8]) -> Result<(), FlashError> {
+    fn spi_master_tx_rx(tx_data: &[u8], rx_data: &mut [u8]) -> Result<(), FlashError> {
         assert!(tx_data.len() != rx_data.len() || tx_data.len() == 0);
+        
+        let mut guard = FLASH.lock();
 
         // Enable slave
-        self.pin_cs.set_low()?;
+        guard.pin_cs.set_low()?;
 
         // Write & read bytes
-        block!(self.spi.send(tx_data[0]))?;
+        block!(guard.spi.send(tx_data[0]))?;
         for i in 0..tx_data.len() - 1 {
-            block!(self.spi.send(tx_data[i + 1]))?;
-            rx_data[i] = block!(self.spi.read())?;
+            block!(guard.spi.send(tx_data[i + 1]))?;
+            rx_data[i] = block!(guard.spi.read())?;
         }
-        *rx_data.last_mut().unwrap() = block!(self.spi.read())?;
+        *rx_data.last_mut().unwrap() = block!(guard.spi.read())?;
 
         // Disable slave
-        self.pin_cs.set_high()?;
+        guard.pin_cs.set_high()?;
 
         Ok(())
     }
 
-    fn spi_master_tx(&mut self, tx_data: &[u8]) -> Result<(), FlashError> {
+    fn spi_master_tx(tx_data: &[u8]) -> Result<(), FlashError> {
         assert_ne!(tx_data.len(), 0);
 
-        // Enable slave
-        self.pin_cs.set_low()?;
+        let mut guard = FLASH.lock();
 
-        block!(self.spi.send(tx_data[0]))?;
+        // Enable slave
+        guard.pin_cs.set_low()?;
+
+        block!(guard.spi.send(tx_data[0]))?;
         for i in 0..tx_data.len() - 1 {
-            block!(self.spi.send(tx_data[i + 1]))?;
-            _ = block!(self.spi.read())?;
+            block!(guard.spi.send(tx_data[i + 1]))?;
+            _ = block!(guard.spi.read())?;
         }
-        _ = block!(self.spi.read())?;
+        _ = block!(guard.spi.read())?;
 
         // Disable slave
-        self.pin_cs.set_high()?;
+        guard.pin_cs.set_high()?;
 
         Ok(())
     }
@@ -139,33 +147,32 @@ impl SpiFlash {
     // }
 
     fn spi_master_tx_rx_fast_read(
-        &mut self,
         tx_data: &[u8; 4],
         rx_data: &mut [u8],
     ) -> Result<(), FlashError> {
         assert_ne!(rx_data.len(), 0);
+        let mut guard = FLASH.lock();
 
         // Enable slave
-        self.pin_cs.set_low()?;
+        guard.pin_cs.set_low()?;
 
         for byte in tx_data {
-            _ = block!(self.spi.send(*byte))?;
-            _ = block!(self.spi.read())?;
+            _ = block!(guard.spi.send(*byte))?;
+            _ = block!(guard.spi.read())?;
         }
 
         for byte in rx_data {
-            _ = block!(self.spi.send(0))?;
-            *byte = block!(self.spi.read())?;
+            _ = block!(guard.spi.send(0))?;
+            *byte = block!(guard.spi.read())?;
         }
 
         // Disable slave
-        self.pin_cs.set_high()?;
+        guard.pin_cs.set_high()?;
 
         Ok(())
     }
 
     fn spi_master_tx_rx_fast_write(
-        &mut self,
         tx_data: &[u8; 4],
         bytes: &[u8],
     ) -> Result<(), FlashError> {
@@ -175,36 +182,37 @@ impl SpiFlash {
         let address: u32 =
             (tx_data[3] as u32) + ((tx_data[2] as u32) << 8) + ((tx_data[1] as u32) << 16);
 
+        let mut guard = FLASH.lock();
         // Enable slave
-        self.pin_cs.set_low()?;
+        guard.pin_cs.set_low()?;
 
         for byte in tx_data {
-            block!(self.spi.send(*byte))?;
-            _ = block!(self.spi.read())?;
+            block!(guard.spi.send(*byte))?;
+            _ = block!(guard.spi.read())?;
         }
 
         // Send first byte
-        block!(self.spi.send(bytes[0]))?;
-        _ = block!(self.spi.read())?;
+        block!(guard.spi.send(bytes[0]))?;
+        _ = block!(guard.spi.read())?;
 
         // Disable slave
-        self.pin_cs.set_high()?;
+        guard.pin_cs.set_high()?;
 
         for i in 1..bytes.len() {
             nrf_delay_us(15);
 
             // Enable slave
-            self.pin_cs.set_low()?;
-            block!(self.spi.send(AAI))?;
-            _ = block!(self.spi.read())?;
+            guard.pin_cs.set_low()?;
+            block!(guard.spi.send(AAI))?;
+            _ = block!(guard.spi.read())?;
 
-            block!(self.spi.send(bytes[i]))?;
-            _ = block!(self.spi.read())?;
+            block!(guard.spi.send(bytes[i]))?;
+            _ = block!(guard.spi.read())?;
 
             bytes_written += 1;
 
             // Disable slave
-            self.pin_cs.set_high()?;
+            guard.pin_cs.set_high()?;
 
             if address + bytes_written >= 0x1FFFF && i < bytes.len() - 1 {
                 return Err(FlashError::OutOfSpace);
@@ -214,21 +222,21 @@ impl SpiFlash {
         nrf_delay_us(20);
 
         // Enable slave
-        self.pin_cs.set_low()?;
+        guard.pin_cs.set_low()?;
 
         //Send WRDI
-        block!(self.spi.send(WRDI))?;
-        _ = block!(self.spi.read())?;
+        block!(guard.spi.send(WRDI))?;
+        _ = block!(guard.spi.read())?;
 
         // Disable slave
-        self.pin_cs.set_high()?;
+        guard.pin_cs.set_high()?;
 
         Ok(())
     }
 
     /// Write-Enable(WREN).
-    fn flash_write_enable(&mut self) -> Result<(), FlashError> {
-        self.spi_master_tx(&[WREN])
+    fn flash_write_enable() -> Result<(), FlashError> {
+        spi_master_tx(&[WREN])
     }
 
     // /// Write-Disable(WRDI).
@@ -237,9 +245,9 @@ impl SpiFlash {
     // }
 
     /// Clears all memory locations by setting value to 0xFF.
-    pub fn flash_chip_erase(&mut self) -> Result<(), FlashError> {
-        self.flash_write_enable()?;
-        self.spi_master_tx(&[CHIP_ERASE])?;
+    pub fn flash_chip_erase() -> Result<(), FlashError> {
+        flash_write_enable()?;
+        spi_master_tx(&[CHIP_ERASE])?;
         nrf_delay_ms(100);
         Ok(())
     }
@@ -252,13 +260,13 @@ impl SpiFlash {
     // }
 
     /// Enable-Write-Status-Register (EWSR). This function must be followed by flash_enable_WSR().
-    fn flash_enable_wsr(&mut self) -> Result<(), FlashError> {
-        self.spi_master_tx(&[EWSR])
+    fn flash_enable_wsr() -> Result<(), FlashError> {
+        spi_master_tx(&[EWSR])
     }
 
     /// Sets Write-Status-Register (WRSR) to 0x00 to enable memory write.
-    fn flash_set_wrsr(&mut self) -> Result<(), FlashError> {
-        self.spi_master_tx(&[WRSR, 0x00])
+    fn flash_set_wrsr() -> Result<(), FlashError> {
+        spi_master_tx(&[WRSR, 0x00])
     }
 
     /// Writes one byte data to specified address.
@@ -269,9 +277,9 @@ impl SpiFlash {
     ///
     /// @param address any address between 0x000000 to 0x01FFFF where the data should be stored.
     /// @param data one byte data to be stored.
-    pub fn flash_write_byte(&mut self, address: u32, byte: u8) -> Result<(), FlashError> {
-        self.flash_write_enable()?;
-        self.spi_master_tx(&[
+    pub fn flash_write_byte(address: u32, byte: u8) -> Result<(), FlashError> {
+        flash_write_enable()?;
+        spi_master_tx(&[
             BYTEWRITE,
             address.to_ne_bytes()[2],
             address.to_ne_bytes()[1],
@@ -291,9 +299,9 @@ impl SpiFlash {
     ///
     /// @param address starting address (between 0x000000 to 0x01FFFF) from which the data should be stored.
     /// @param byte pointer to uint8_t type array containing data.
-    pub fn flash_write_bytes(&mut self, address: u32, bytes: &[u8]) -> Result<(), FlashError> {
-        self.flash_write_enable()?;
-        self.spi_master_tx_rx_fast_write(
+    pub fn flash_write_bytes(address: u32, bytes: &[u8]) -> Result<(), FlashError> {
+        flash_write_enable()?;
+        spi_master_tx_rx_fast_write(
             &[
                 AAI,
                 address.to_ne_bytes()[2],
@@ -310,9 +318,9 @@ impl SpiFlash {
     /// @param address any address between 0x000000 to 0x01FFFF from where the data should be read.
     ///                The address is incremented automatically and once the data is written to last accessible
     ///                address - 0x01FFFF, the function returns immediately with failure if there is pending data to write.
-    pub fn flash_read_byte(&mut self, address: u32) -> Result<u8, FlashError> {
+    pub fn flash_read_byte(address: u32) -> Result<u8, FlashError> {
         let mut rx_data = [0; 5];
-        self.spi_master_tx_rx(
+        spi_master_tx_rx(
             &[
                 BYTEREAD,
                 address.to_ne_bytes()[2],
@@ -331,8 +339,8 @@ impl SpiFlash {
     ///               The address is incremented automatically and once the data from address 0x01FFFF
     ///               is read, the next location will be 0x000000.
     ///@param buffer pointer to uint8_t type array where data is stored.
-    pub fn flash_read_bytes(&mut self, address: u32, buffer: &mut [u8]) -> Result<(), FlashError> {
-        self.spi_master_tx_rx_fast_read(
+    pub fn flash_read_bytes(address: u32, buffer: &mut [u8]) -> Result<(), FlashError> {
+        spi_master_tx_rx_fast_read(
             &[
                 BYTEREAD,
                 address.to_ne_bytes()[2],
@@ -343,7 +351,6 @@ impl SpiFlash {
         )?;
         Ok(())
     }
-}
 
 #[allow(unused_assignments)]
 fn nrf_delay_us(mut number_of_us: u32) {
