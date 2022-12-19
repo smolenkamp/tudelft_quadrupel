@@ -8,8 +8,8 @@ use crate::once_cell::OnceCell;
 
 pub struct Motors {
     motor_values: [u16; 4],
-    motor_max: u16,
     motor_min: u16,
+    motor_max: u16,
     timer1: nrf51_pac::TIMER1,
     timer2: nrf51_pac::TIMER2,
     pin20: P0_20<Output<PushPull>>,
@@ -178,6 +178,7 @@ pub(crate) fn initialize(
         .tep
         .write(|w| unsafe { w.bits(gpiote.tasks_out[3].as_ptr() as u32) });
 
+    // Set which channels of PPI are enabled
     ppi.chenset.write(|w| {
         w.ch0()
             .set_bit()
@@ -197,18 +198,18 @@ pub(crate) fn initialize(
             .set_bit()
     });
 
-    // turn on timer 2 interrupts
-    NVIC::unpend(Interrupt::TIMER2);
-    // set their priority to 1, very high
+    // Configure timer interrupts
     unsafe {
         nvic.set_priority(Interrupt::TIMER2, 1);
+        NVIC::unpend(Interrupt::TIMER2);
+        nvic.set_priority(Interrupt::TIMER1, 1);
+        NVIC::unpend(Interrupt::TIMER1);
     }
 
-    // turn on timer 2 interrupts
-    NVIC::unpend(Interrupt::TIMER1);
-    // set their priority to 1, very high
+    // Enable interrupts
     unsafe {
-        nvic.set_priority(Interrupt::TIMER1, 1);
+        NVIC::unmask(Interrupt::TIMER2);
+        NVIC::unmask(Interrupt::TIMER1);
     }
 }
 
