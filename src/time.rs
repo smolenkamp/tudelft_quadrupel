@@ -90,7 +90,7 @@ fn get_time_us() -> u64 {
 pub(crate) fn initialize(clock: RTC0, clock_frequency: u8) {
     let mut rtc = RTC.lock();
     // calculate closest prescaler based on frequency
-    let prescaler = (32_768 / clock_frequency as u32) - 1;
+    let prescaler = (32_768 / clock_frequency as u32) + 1;
 
     // now work back to the frequency, convert that to a wavelength, and base
     // it on nanoseconds instead of seconds so we don't get a decimal number
