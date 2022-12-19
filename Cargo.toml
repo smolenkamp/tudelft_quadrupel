@@ -5,6 +5,8 @@ edition = "2021"
 authors = [
     "Jonathan Dönszelmann <jonabent@gmail.com>",
     "Victor Roest <victor@xirion.net>",
+    "Jonathan Brouwer <jonathantbrouwer@gmail.com>",
+    "Anne Stijns <anstijns@gmail.com>"
 ]
 license = "MIT"
 description = "Hardware support library for the quadrupel drone project (embedded systems lab)."
@@ -19,3 +21,6 @@ cortex-m-rt = "0.7.2"
 nrf51-hal = "0.16.0"
 nrf51-pac = "0.12.2"
 void = { version = "1.0.2", default-features = false }
+embedded-hal = { version = "0.2.7", features = ["unproven"] }
+fixed = { version = "1.20" }
+nb = "1.0.0"

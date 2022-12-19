@@ -1,7 +1,7 @@
 use core::mem::MaybeUninit;
 use alloc_cortex_m::CortexMHeap;
 use nrf51_pac::Peripherals;
-use crate::{led, motor, time, uart};
+use crate::{led, motor, mpu, time, twi, uart};
 use crate::led::Led::Red;
 use crate::mutex::Mutex;
 use crate::time::assembly_delay;
@@ -61,6 +61,18 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], clock_frequency: 
 
     if debug {
         send_bytes(b"RTC driver initialized\n");
+    }
+
+    twi::initialize(nrf51_peripherals.TWI0, gpio.p0_04, gpio.p0_02);
+
+    if debug {
+        send_bytes(b"TWI initialized\n");
+    }
+
+    mpu::initialize();
+
+    if debug {
+        send_bytes(b"MPU initialized\n");
     }
 
     motor::initialize(
