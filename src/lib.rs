@@ -1,6 +1,6 @@
 #![no_std]
 #![feature(strict_provenance)]
-#![deny(missing_docs)]
+// #![deny(missing_docs)]
 #![deny(warnings)]
 #![deny(unused_import_braces)]
 #![deny(unused_results)]
@@ -21,12 +21,22 @@ pub use cortex_m_rt;
 
 pub mod once_cell;
 pub mod mutex;
+// TODO
 pub mod battery;
+// TODO
 pub mod barometer;
 pub mod led;
 pub mod initialize;
+// TODO
 pub mod flash;
 pub mod time;
-pub mod twi;
 pub mod uart;
+// TODO (pwm)
 pub mod motor;
+// TODO
+pub mod mpu;
+
+// TODO
+mod twi;
+// TODO
+mod spi;
