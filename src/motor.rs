@@ -51,8 +51,8 @@ pub(crate) fn initialize(
     let mut motors = MOTORS.lock();
     motors.initialize(Motors {
         motor_values: [0; 4],
-        motor_max: 0,
-        motor_min: 800,
+        motor_min: 0,
+        motor_max: 800,
         timer1,
         timer2,
         pin20,
