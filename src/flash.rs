@@ -128,24 +128,6 @@ fn spi_master_tx(tx_data: &[u8]) -> Result<(), FlashError> {
     Ok(())
 }
 
-// fn spi_master_rx(&mut self, rx_data: &mut [u8]) {
-//     assert_ne!(rx_data.len(), 0);
-//
-//     // Enable slave
-//     self.pin_cs.set_low().unwrap();
-//
-//     // Write & read bytes
-//     block!(self.spi.send(0)).unwrap();
-//     for i in 0..rx_data.len() - 1 {
-//         block!(self.spi.send(0)).unwrap();
-//         rx_data[i] = block!(self.spi.read()).unwrap();
-//     }
-//     *rx_data.last_mut().unwrap() = block!(self.spi.read()).unwrap();
-//
-//     // Disable slave
-//     self.pin_cs.set_high().unwrap();
-// }
-
 fn spi_master_tx_rx_fast_read(tx_data: &[u8; 4], rx_data: &mut [u8]) -> Result<(), FlashError> {
     assert_ne!(rx_data.len(), 0);
     let mut guard = FLASH.lock();
@@ -233,11 +215,6 @@ fn flash_write_enable() -> Result<(), FlashError> {
     spi_master_tx(&[WREN])
 }
 
-// /// Write-Disable(WRDI).
-// fn flash_write_disable(&mut self) {
-//     self.spi_master_tx(&[WRDI]);
-// }
-
 /// Clears all memory locations by setting value to 0xFF.
 pub fn flash_chip_erase() -> Result<(), FlashError> {
     flash_write_enable()?;
@@ -245,13 +222,6 @@ pub fn flash_chip_erase() -> Result<(), FlashError> {
     nrf_delay_ms(100);
     Ok(())
 }
-
-// /// Read Read-Status-Register (RDSR).
-// fn flash_read_status(&mut self) -> u8 {
-//     let mut rx_data = [0u8; 2];
-//     self.spi_master_tx_rx(&[RDSR, 0x00], &mut rx_data);
-//     return rx_data[1];
-// }
 
 /// Enable-Write-Status-Register (EWSR). This function must be followed by flash_enable_WSR().
 fn flash_enable_wsr() -> Result<(), FlashError> {
