@@ -49,7 +49,8 @@ pub struct SpiFlash {
     pin_cs: P0_17<Output<PushPull>>,
 }
 
-pub fn initialize(
+/// Initialize the flash memory. Should be called only once.
+pub(crate) fn initialize(
     spi1: SPI1,
     pin_cs: P0_17<Disconnected>,
     pin_miso: P0_18<Disconnected>,
@@ -86,6 +87,7 @@ pub fn initialize(
     return Ok(());
 }
 
+/// Transmit and receive data over SPI.
 fn spi_master_tx_rx(tx_data: &[u8], rx_data: &mut [u8]) -> Result<(), FlashError> {
     assert!(tx_data.len() != rx_data.len() || tx_data.len() == 0);
 
@@ -108,6 +110,7 @@ fn spi_master_tx_rx(tx_data: &[u8], rx_data: &mut [u8]) -> Result<(), FlashError
     Ok(())
 }
 
+/// Transmit data over SPI. Ignore any received data.
 fn spi_master_tx(tx_data: &[u8]) -> Result<(), FlashError> {
     assert_ne!(tx_data.len(), 0);
 
@@ -129,6 +132,7 @@ fn spi_master_tx(tx_data: &[u8]) -> Result<(), FlashError> {
     Ok(())
 }
 
+/// Transmit data over SPI. Unrolled loop makes this faster for reading bytes.
 fn spi_master_tx_rx_fast_read(tx_data: &[u8; 4], rx_data: &mut [u8]) -> Result<(), FlashError> {
     assert_ne!(rx_data.len(), 0);
     let mut guard = FLASH.lock();
@@ -152,6 +156,7 @@ fn spi_master_tx_rx_fast_read(tx_data: &[u8; 4], rx_data: &mut [u8]) -> Result<(
     Ok(())
 }
 
+/// Transmit data over SPI. Unrolled loop makes this faster for writing bytes.
 fn spi_master_tx_rx_fast_write(tx_data: &[u8; 4], bytes: &[u8]) -> Result<(), FlashError> {
     assert_ne!(bytes.len(), 0);
 
