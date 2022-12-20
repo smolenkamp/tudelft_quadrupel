@@ -1,5 +1,5 @@
 use cortex_m::peripheral::NVIC;
-use ringbuffer::{ConstGenericRingBuffer, RingBufferRead, RingBufferWrite};
+use ringbuffer::{ConstGenericRingBuffer, RingBuffer, RingBufferRead, RingBufferWrite};
 use crate::mutex::{LockGuard, Mutex};
 use crate::once_cell::OnceCell;
 use nrf51_pac::interrupt;
@@ -87,11 +87,17 @@ pub fn get_byte(uart: &mut LockGuard<OnceCell<UartDriver>>) -> Option<u8> {
 }
 
 /// Writes the entire buffer over UART
-pub fn send_bytes(bytes: &[u8]) {
+pub fn send_bytes(bytes: &[u8]) -> bool {
     let mut uart = UART.lock();
+    if uart.tx_buffer.len() + bytes.len() >= uart.tx_buffer.capacity() {
+        return false;
+    }
+
     for byte in bytes {
         put_byte(&mut uart, *byte);
     }
+
+    true
 }
 
 /// Pushes a single byte over uart

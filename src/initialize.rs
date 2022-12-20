@@ -6,7 +6,6 @@ use crate::led::Led::Red;
 use crate::mutex::Mutex;
 use crate::time::assembly_delay;
 use crate::uart::send_bytes;
-
 static INITIALIZED: Mutex<bool> = Mutex::new(false);
 
 #[global_allocator]
