@@ -132,7 +132,7 @@ fn spi_master_tx(tx_data: &[u8]) -> Result<(), FlashError> {
     Ok(())
 }
 
-/// Transmit data over SPI. Unrolled loop makes this faster for reading bytes.
+/// Transmit data over SPI. Optimized to read bytes from the flash memory.
 fn spi_master_tx_rx_fast_read(tx_data: &[u8; 4], rx_data: &mut [u8]) -> Result<(), FlashError> {
     assert_ne!(rx_data.len(), 0);
     let mut guard = FLASH.lock();
@@ -156,7 +156,7 @@ fn spi_master_tx_rx_fast_read(tx_data: &[u8; 4], rx_data: &mut [u8]) -> Result<(
     Ok(())
 }
 
-/// Transmit data over SPI. Unrolled loop makes this faster for writing bytes.
+/// Transmit data over SPI. Optimized to write bytes to the flash memory.
 fn spi_master_tx_rx_fast_write(tx_data: &[u8; 4], bytes: &[u8]) -> Result<(), FlashError> {
     assert_ne!(bytes.len(), 0);
 
