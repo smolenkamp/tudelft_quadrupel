@@ -182,6 +182,7 @@ fn spi_master_tx_rx_fast_write(tx_data: &[u8; 4], bytes: &[u8]) -> Result<(), Fl
 
     for i in 1..bytes.len() {
         sleep_for(Duration::from_micros(15));
+        let mut guard = FLASH.lock();
 
         // Enable slave
         guard.pin_cs.set_low()?;
@@ -204,6 +205,7 @@ fn spi_master_tx_rx_fast_write(tx_data: &[u8; 4], bytes: &[u8]) -> Result<(), Fl
     sleep_for(Duration::from_micros(20));
 
     // Enable slave
+    let mut guard = FLASH.lock();
     guard.pin_cs.set_low()?;
 
     //Send WRDI
