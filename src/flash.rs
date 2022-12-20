@@ -1,6 +1,7 @@
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
-use core::arch::asm;
+use crate::time::sleep_for;
+use core::time::Duration;
 use nb::block;
 use nrf51_hal::gpio::p0::*;
 use nrf51_hal::gpio::Level;
@@ -175,7 +176,7 @@ fn spi_master_tx_rx_fast_write(tx_data: &[u8; 4], bytes: &[u8]) -> Result<(), Fl
     guard.pin_cs.set_high()?;
 
     for i in 1..bytes.len() {
-        nrf_delay_us(15);
+        sleep_for(Duration::from_micros(15));
 
         // Enable slave
         guard.pin_cs.set_low()?;
@@ -195,7 +196,7 @@ fn spi_master_tx_rx_fast_write(tx_data: &[u8; 4], bytes: &[u8]) -> Result<(), Fl
         }
     }
 
-    nrf_delay_us(20);
+    sleep_for(Duration::from_micros(20));
 
     // Enable slave
     guard.pin_cs.set_low()?;
@@ -219,7 +220,7 @@ fn flash_write_enable() -> Result<(), FlashError> {
 pub fn flash_chip_erase() -> Result<(), FlashError> {
     flash_write_enable()?;
     spi_master_tx(&[CHIP_ERASE])?;
-    nrf_delay_ms(100);
+    sleep_for(Duration::from_millis(100));
     Ok(())
 }
 
@@ -250,7 +251,7 @@ pub fn flash_write_byte(address: u32, byte: u8) -> Result<(), FlashError> {
         address.to_ne_bytes()[0],
         byte,
     ])?;
-    nrf_delay_us(20);
+    sleep_for(Duration::from_micros(20));
     Ok(())
 }
 
@@ -314,35 +315,4 @@ pub fn flash_read_bytes(address: u32, buffer: &mut [u8]) -> Result<(), FlashErro
         buffer,
     )?;
     Ok(())
-}
-
-#[allow(unused_assignments)]
-fn nrf_delay_us(mut number_of_us: u32) {
-    unsafe {
-        asm!(
-            "1:",
-            "subs {}, #1",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "bne 1b",
-            inout(reg) number_of_us,
-            options(nomem, nostack)
-        )
-    }
-}
-
-fn nrf_delay_ms(number_of_ms: u32) {
-    for _ in 0..number_of_ms {
-        nrf_delay_us(999);
-    }
 }
