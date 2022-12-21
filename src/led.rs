@@ -1,17 +1,17 @@
-use cortex_m::interrupt::free;
-use nrf51_hal::gpio::{Disconnected, Level, Output, PushPull};
-use nrf51_hal::gpio::p0::{P0_22, P0_24, P0_28, P0_30};
-use nrf51_hal::prelude::{OutputPin, StatefulOutputPin};
-use void::ResultVoidExt;
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
+use cortex_m::interrupt::free;
+use nrf51_hal::gpio::p0::{P0_22, P0_24, P0_28, P0_30};
+use nrf51_hal::gpio::{Disconnected, Level, Output, PushPull};
+use nrf51_hal::prelude::{OutputPin, StatefulOutputPin};
+use void::ResultVoidExt;
 
 #[derive(Copy, Clone)]
 pub enum Led {
     Red,
     Yellow,
     Green,
-    Blue
+    Blue,
 }
 
 impl Led {
@@ -22,7 +22,7 @@ impl Led {
         // inline comments from the `nrf_51` crate on `set_high`.
         //
         // NOTE: single writes on ARM are always atomic so this makes sense.
-        let leds = unsafe {LEDS.no_critical_section_lock()};
+        let leds = unsafe { LEDS.no_critical_section_lock() };
 
         // ignore the error here. Its type is `Void` and is impossible
         // to construct (and thus impossible to actually happen)
@@ -41,7 +41,7 @@ impl Led {
         // inline comments from the `nrf_51` crate on `set_high`.
         //
         // NOTE: single writes on ARM are always atomic so this makes sense.
-        let leds = unsafe {LEDS.no_critical_section_lock()};
+        let leds = unsafe { LEDS.no_critical_section_lock() };
 
         // ignore the error here. Its type is `Void` and is impossible
         // to construct (and thus impossible to actually happen)
@@ -60,7 +60,7 @@ impl Led {
         // inline comments from the `nrf_51` crate on `set_high`.
         //
         // NOTE: single writes on ARM are always atomic so this makes sense.
-        let leds = unsafe {LEDS.no_critical_section_lock()};
+        let leds = unsafe { LEDS.no_critical_section_lock() };
 
         let res = match self {
             Led::Red => leds.led_red.is_set_high(),
@@ -120,12 +120,10 @@ pub(crate) fn initialize(
     led_green: P0_28<Disconnected>,
     led_blue: P0_30<Disconnected>,
 ) {
-    LEDS.lock().initialize(
-        Leds {
-            led_red: led_red.into_push_pull_output(Level::High),
-            led_yellow: led_yellow.into_push_pull_output(Level::High),
-            led_green: led_green.into_push_pull_output(Level::High),
-            led_blue: led_blue.into_push_pull_output(Level::High),
-        }
-    )
+    LEDS.lock().initialize(Leds {
+        led_red: led_red.into_push_pull_output(Level::High),
+        led_yellow: led_yellow.into_push_pull_output(Level::High),
+        led_green: led_green.into_push_pull_output(Level::High),
+        led_blue: led_blue.into_push_pull_output(Level::High),
+    })
 }

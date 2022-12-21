@@ -3,22 +3,18 @@ use core::ops::{Deref, DerefMut};
 /// A wrapper around a type, making sure that the contents
 /// are only ever initialized *once*.
 pub struct OnceCell<T> {
-    v: Option<T>
+    v: Option<T>,
 }
 
 impl<T> OnceCell<T> {
     /// Create a new uninitialized [`OnceCell`], which will later be
     /// populated with a value
     pub const fn uninitialized() -> Self {
-        Self {
-            v: None
-        }
+        Self { v: None }
     }
 
     pub const fn new(v: T) -> Self {
-        Self {
-            v: Some(v),
-        }
+        Self { v: Some(v) }
     }
 
     /// Initialize an empty [`OnceCell`] with a value.

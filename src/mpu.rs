@@ -1,14 +1,13 @@
-use nb::Error::WouldBlock;
-use nrf51_hal::Twi;
-use nrf51_pac::TWI0;
-use structs::{Accel, Gyro, Quaternion};
 use crate::mpu::config::DigitalLowPassFilter;
 use crate::mpu::error::Error;
 use crate::mpu::sensor::Mpu6050;
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
 use crate::twi::TWI;
-
+use nb::Error::WouldBlock;
+use nrf51_hal::Twi;
+use nrf51_pac::TWI0;
+use structs::{Accel, Gyro, Quaternion};
 
 #[allow(unused)]
 mod config;
@@ -38,9 +37,11 @@ pub(crate) fn initialize() {
     mpu.initialize_dmp(twi).unwrap();
     mpu.set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_MPU)
         .unwrap();
-    mpu.set_digital_lowpass_filter(twi, DigitalLowPassFilter::Filter5).unwrap();
+    mpu.set_digital_lowpass_filter(twi, DigitalLowPassFilter::Filter5)
+        .unwrap();
     MPU.lock().initialize(Mpu {
-        mpu, dmp_enabled: true,
+        mpu,
+        dmp_enabled: true,
     })
 }
 
@@ -55,7 +56,9 @@ pub fn disable_dmp() {
     let twi: &mut Twi<_> = &mut TWI.lock();
     let mpu: &mut Mpu = &mut MPU.lock();
 
-    mpu.mpu.set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_RAW).unwrap();
+    mpu.mpu
+        .set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_RAW)
+        .unwrap();
     mpu.mpu.disable_dmp(twi).unwrap();
     mpu.mpu.disable_fifo(twi).unwrap();
     mpu.dmp_enabled = false
@@ -66,7 +69,8 @@ pub fn enable_dmp() -> Result<(), Error<Twi<TWI0>>> {
     let twi: &mut Twi<_> = &mut TWI.lock();
     let mpu: &mut Mpu = &mut MPU.lock();
 
-    mpu.mpu.set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_MPU)?;
+    mpu.mpu
+        .set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_MPU)?;
     mpu.mpu.enable_dmp(twi)?;
     mpu.mpu.enable_fifo(twi)?;
     mpu.dmp_enabled = true;
@@ -97,7 +101,6 @@ pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<Twi<TWI0>>> {
 
     // Convert the last full packet we received to a Quaternion
     Ok(Quaternion::from_bytes(&buf[..16]))
-
 }
 
 /// This reads the most recent acceleration and gyroscope information from the MPU.

@@ -1,4 +1,4 @@
-use fixed::{FixedI32, types};
+use fixed::{types, FixedI32};
 
 /// A quaternion is a mathematical way of representing angles.
 /// These are not very intuitive, but this is what the hardware returns.
@@ -27,7 +27,7 @@ impl Quaternion {
         let z = FixedI32::<types::extra::U30>::from_be_bytes([
             bytes[12], bytes[13], bytes[14], bytes[15],
         ]);
-        Quaternion{w,x,y,z}
+        Quaternion { w, x, y, z }
     }
 }
 

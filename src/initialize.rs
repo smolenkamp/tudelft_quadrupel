@@ -1,11 +1,11 @@
-use core::mem::MaybeUninit;
-use alloc_cortex_m::CortexMHeap;
-use nrf51_pac::Peripherals;
-use crate::{led, motor, mpu, time, twi, uart};
 use crate::led::Led::Red;
 use crate::mutex::Mutex;
 use crate::time::assembly_delay;
 use crate::uart::send_bytes;
+use crate::{led, motor, mpu, time, twi, uart};
+use alloc_cortex_m::CortexMHeap;
+use core::mem::MaybeUninit;
+use nrf51_pac::Peripherals;
 static INITIALIZED: Mutex<bool> = Mutex::new(false);
 
 #[global_allocator]
@@ -41,7 +41,7 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], clock_frequency: 
     // * only called once --> the global INITIALIZED flag is set, and we panic above if called twice
     // * Heap is not empty, see the assert
     assert!(!heap_memory.is_empty());
-    unsafe {ALLOCATOR.init(heap_memory.as_ptr().addr(), heap_memory.len())}
+    unsafe { ALLOCATOR.init(heap_memory.as_ptr().addr(), heap_memory.len()) }
 
     let gpio = nrf51_hal::gpio::p0::Parts::new(nrf51_peripherals.GPIO);
     led::initialize(gpio.p0_22, gpio.p0_24, gpio.p0_28, gpio.p0_30);

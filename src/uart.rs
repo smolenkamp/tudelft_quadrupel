@@ -1,8 +1,8 @@
-use cortex_m::peripheral::NVIC;
-use ringbuffer::{ConstGenericRingBuffer, RingBuffer, RingBufferRead, RingBufferWrite};
 use crate::mutex::{LockGuard, Mutex};
 use crate::once_cell::OnceCell;
+use cortex_m::peripheral::NVIC;
 use nrf51_pac::interrupt;
+use ringbuffer::{ConstGenericRingBuffer, RingBuffer, RingBufferRead, RingBufferWrite};
 
 const BUFFER_SIZE: usize = 256;
 
@@ -48,7 +48,7 @@ pub(crate) fn initialize(uart: nrf51_pac::UART0, nvic: &mut NVIC) {
         rx_buffer: Default::default(),
         tx_buffer: Default::default(),
         tx_data_available: true,
-        uart
+        uart,
     })
 }
 
@@ -115,7 +115,7 @@ fn put_byte(uart: &mut LockGuard<OnceCell<UartDriver>>, byte: u8) {
 /// It's called when the enabled interrupts for uart0 are triggered
 unsafe fn UART0() {
     // Safety: interrupts are already turned off here, since we are inside an interrupt
-    let uart = unsafe{UART.no_critical_section_lock()};
+    let uart = unsafe { UART.no_critical_section_lock() };
 
     if uart.uart.events_rxdrdy.read().bits() != 0 {
         uart.uart.events_rxdrdy.reset();

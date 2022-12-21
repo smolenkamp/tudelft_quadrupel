@@ -1,12 +1,12 @@
 use core::time::Duration;
 
+use crate::mutex::Mutex;
+use crate::once_cell::OnceCell;
 /// Delay for a number of CPU cycles. Very inaccurate
 /// and hard to convert to an exact number of seconds
 pub use cortex_m::asm::delay as assembly_delay;
 use nrf51_hal::Rtc;
 use nrf51_pac::RTC0;
-use crate::mutex::Mutex;
-use crate::once_cell::OnceCell;
 
 /// A moment in time
 #[derive(Debug, Copy, Clone)]
@@ -18,7 +18,7 @@ impl Instant {
     /// Return the current instant, i.e. the current time
     pub fn now() -> Self {
         Self {
-            time: get_time_us()
+            time: get_time_us(),
         }
     }
 
@@ -31,9 +31,8 @@ impl Instant {
     /// Adds a duration to this instant, producing a new instant in the future
     pub fn add_duration(self, d: Duration) -> Self {
         Self {
-            time: self.time + d.as_nanos() as u64
+            time: self.time + d.as_nanos() as u64,
         }
-
     }
 
     pub fn is_later_than(self, other: Self) -> bool {
@@ -50,17 +49,16 @@ impl Instant {
     }
 }
 
-
 /// Wait for this duration.
 pub fn sleep_for(d: Duration) {
     Instant::now().add_duration(d).sleep_until();
 }
 
-pub fn loop_at_freq(hz: u64, mut f: impl FnMut(Duration)) -> ! {
+pub fn loop_at_freq(hz: u64, mut f: impl FnMut(Instant, Duration)) -> ! {
     let mut last = Instant::now();
     loop {
         let start = Instant::now();
-        f(start.duration_since(last));
+        f(start, start.duration_since(last));
         let done = Instant::now();
 
         let expected_duration = Duration::from_nanos(1_000_000_000 / hz);

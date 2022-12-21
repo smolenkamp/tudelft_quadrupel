@@ -1,13 +1,13 @@
+use crate::mpu::config::Fifo;
+use crate::mpu::config::GyroFullScale;
 use crate::mpu::config::{AccelFullScale, ClockSource, DigitalLowPassFilter};
 use crate::mpu::error::Error;
-use crate::mpu::config::Fifo;
 use crate::mpu::registers::Register;
+use crate::mpu::structs::{Accel, Gyro};
+use crate::time::sleep_for;
 use core::marker::PhantomData;
 use core::time::Duration;
 use embedded_hal::blocking::i2c::{Write, WriteRead};
-use crate::mpu::config::GyroFullScale;
-use crate::mpu::structs::{Accel, Gyro};
-use crate::time::sleep_for;
 
 const MPU6050_ADDRESS: u8 = 0x68;
 
@@ -39,10 +39,7 @@ where
     }
 
     /// Load DMP firmware and perform all appropriate initialization.
-    pub fn initialize_dmp(
-        &mut self,
-        i2c: &mut I2c,
-    ) -> Result<(), Error<I2c>> {
+    pub fn initialize_dmp(&mut self, i2c: &mut I2c) -> Result<(), Error<I2c>> {
         self.reset(i2c)?;
         self.disable_sleep(i2c)?;
         self.reset_signal_path(i2c)?;
@@ -107,10 +104,7 @@ where
     // ------------------------------------------------------------------------
 
     /// Perform power reset of the MPU
-    pub fn reset(
-        &mut self,
-        i2c: &mut I2c,
-    ) -> Result<(), Error<I2c>> {
+    pub fn reset(&mut self, i2c: &mut I2c) -> Result<(), Error<I2c>> {
         let mut value = self.read_register(i2c, Register::PwrMgmt1)?;
         value |= 1 << 7;
         self.write_register(i2c, Register::PwrMgmt1, value)?;
@@ -119,10 +113,7 @@ where
     }
 
     /// Perform reset of the signal path
-    pub fn reset_signal_path(
-        &mut self,
-        i2c: &mut I2c,
-    ) -> Result<(), Error<I2c>> {
+    pub fn reset_signal_path(&mut self, i2c: &mut I2c) -> Result<(), Error<I2c>> {
         let mut value = self.read_register(i2c, Register::UserCtrl)?;
         value |= 1 << 0;
         self.write_register(i2c, Register::UserCtrl, value)?;

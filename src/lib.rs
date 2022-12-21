@@ -15,26 +15,26 @@ pub extern crate nrf51_hal;
 pub use cortex_m_rt::entry;
 pub use nb::block;
 
-pub use ringbuffer;
 pub use cortex_m;
-pub use nrf51_pac;
 pub use cortex_m_rt;
 pub use fixed;
+pub use nrf51_pac;
+pub use ringbuffer;
 
-pub mod once_cell;
 pub mod mutex;
+pub mod once_cell;
 // TODO
 pub mod battery;
 // TODO
 pub mod barometer;
-pub mod led;
 pub mod initialize;
+pub mod led;
 // TODO
 pub mod flash;
-pub mod time;
-pub mod uart;
 pub mod motor;
 pub mod mpu;
+pub mod time;
 mod twi;
+pub mod uart;
 // TODO
 mod spi;

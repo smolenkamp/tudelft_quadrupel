@@ -1,10 +1,10 @@
-use cortex_m::peripheral::NVIC;
-use nrf51_hal::gpio::{Disconnected, Level, Output, PushPull};
-use nrf51_hal::gpio::p0::P0_20;
-use crate::nrf51_hal::prelude::OutputPin;
-use nrf51_pac::{GPIOTE, interrupt, Interrupt, PPI};
 use crate::mutex::Mutex;
+use crate::nrf51_hal::prelude::OutputPin;
 use crate::once_cell::OnceCell;
+use cortex_m::peripheral::NVIC;
+use nrf51_hal::gpio::p0::P0_20;
+use nrf51_hal::gpio::{Disconnected, Level, Output, PushPull};
+use nrf51_pac::{interrupt, Interrupt, GPIOTE, PPI};
 
 pub struct Motors {
     motor_values: [u16; 4],
@@ -104,7 +104,10 @@ pub(crate) fn initialize(
     });
 
     // Configure timer 2
-    motors.timer2.prescaler.write(|w| unsafe { w.prescaler().bits(1) }); //0.125us. Safety: Allowed range of values is 0-9
+    motors
+        .timer2
+        .prescaler
+        .write(|w| unsafe { w.prescaler().bits(1) }); //0.125us. Safety: Allowed range of values is 0-9
     motors.timer2.intenset.write(|w| w.compare3().set_bit());
     motors.timer2.cc[0].write(|w| unsafe { w.bits(1000) }); // Safety: Any time is allowed
     motors.timer2.cc[1].write(|w| unsafe { w.bits(1000) }); // Safety: Any time is allowed
@@ -114,7 +117,10 @@ pub(crate) fn initialize(
 
     // Configure timer 1
     // Safety: Allowed range of values is 0-9
-    motors.timer1.prescaler.write(|w| unsafe { w.prescaler().bits(1) }); //0.125us
+    motors
+        .timer1
+        .prescaler
+        .write(|w| unsafe { w.prescaler().bits(1) }); //0.125us
     motors.timer1.intenset.write(|w| w.compare3().set_bit());
     motors.timer1.cc[0].write(|w| unsafe { w.bits(1000) }); // Safety: Any time is allowed
     motors.timer1.cc[1].write(|w| unsafe { w.bits(1000) }); // Safety: Any time is allowed
@@ -220,12 +226,10 @@ pub(crate) fn initialize(
     }
 }
 
-
-
 #[interrupt]
 unsafe fn TIMER2() {
     // Safety: interrupts are already turned off here, since we are inside an interrupt
-    let motors = unsafe {MOTORS.no_critical_section_lock()};
+    let motors = unsafe { MOTORS.no_critical_section_lock() };
     if motors.timer2.events_compare[3].read().bits() != 0 {
         motors.timer2.events_compare[3].reset();
         //2500 * 0.125
@@ -242,7 +246,7 @@ unsafe fn TIMER2() {
 #[interrupt]
 unsafe fn TIMER1() {
     // Safety: interrupts are already turned off here, since we are inside an interrupt
-    let motors = unsafe {MOTORS.no_critical_section_lock()};
+    let motors = unsafe { MOTORS.no_critical_section_lock() };
     if motors.timer1.events_compare[3].read().bits() != 0 {
         motors.timer1.events_compare[3].reset();
         motors.timer1.tasks_capture[2].write(|w| w.bits(1));

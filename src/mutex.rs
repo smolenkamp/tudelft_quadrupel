@@ -6,7 +6,7 @@ use cortex_m::register::primask;
 use cortex_m::register::primask::Primask;
 
 pub struct Mutex<T> {
-    inner: UnsafeCell<T>
+    inner: UnsafeCell<T>,
 }
 
 // SAFETY: it is safe to share a Mutex between interrupts and
@@ -28,7 +28,7 @@ unsafe impl<T> Sync for Mutex<T> {}
 impl<T> Mutex<T> {
     pub const fn new(v: T) -> Self {
         Self {
-            inner: UnsafeCell::new(v)
+            inner: UnsafeCell::new(v),
         }
     }
 
@@ -45,21 +45,23 @@ impl<T> Mutex<T> {
             // back on, which happens when users drop the LockGuard. Since the
             // guard is the only way to access &mut T, this means that interrupts
             // are turned on at the moment you can never have access to &mut T anymore
-            inner: unsafe {&mut *self.inner.get()},
+            inner: unsafe { &mut *self.inner.get() },
             primask,
         }
     }
 
     /// This function gets a reference to the inner `T` _without_ locking the lock.
     /// This is inherently unsafe.
-    /// 
-    /// # Safety 
+    ///
+    /// # Safety
     /// This function is only safe if you can guarantee that nothing is
-    /// mutating this or holding a lock while this reference exists.
-    /// 
+    /// mutating this or holding a lock while this reference exists. That means, you should
+    /// generally drop this reference ASAP.
+    ///
     /// This generally can be used in the following cases:
     /// * You only access this from within interrupts, as interrupts themselves can not be interrupted
     /// * You only access this outside of interrupts, as interrupts don't break the mutex guarantees
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn no_critical_section_lock(&self) -> &mut T {
         &mut *self.inner.get()
     }
