@@ -24,9 +24,14 @@ static MOTORS: Mutex<OnceCell<Motors>> = Mutex::new(OnceCell::uninitialized());
 /// This sets the maximum motor value that the motor driver will cap the motor values at
 /// This is set to 400 by default, which is about the point that the drone will hover at.
 /// If you want the drone to actually fly, 800 is a reasonable maximum.
-pub fn set_motor_limits(max: u16) {
+pub fn set_motor_max(max: u16) {
     let mut guard = MOTORS.lock();
     guard.motor_max = max;
+}
+
+pub fn get_motor_max() -> u16 {
+    let mut guard = MOTORS.lock();
+    guard.motor_max
 }
 
 /// Get the current motor values.
