@@ -20,7 +20,6 @@ alloc-cortex-m = "0.4.3"
 cortex-m-rt = "0.7.2"
 nrf51-hal = "0.16.0"
 nrf51-pac = "0.12.2"
-nb = "1"
 void = { version = "1.0.2", default-features = false }
 embedded-hal = { version = "0.2.7", features = ["unproven"] }
 fixed = { version = "1.20" }
