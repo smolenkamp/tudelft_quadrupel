@@ -87,29 +87,6 @@ pub(crate) fn initialize(
     return Ok(());
 }
 
-/// Transmit and receive data over SPI.
-fn spi_master_tx_rx(tx_data: &[u8], rx_data: &mut [u8]) -> Result<(), FlashError> {
-    assert!(tx_data.len() != rx_data.len() || tx_data.len() == 0);
-
-    let mut guard = FLASH.lock();
-
-    // Enable slave
-    guard.pin_cs.set_low()?;
-
-    // Write & read bytes
-    block!(guard.spi.send(tx_data[0]))?;
-    for i in 0..tx_data.len() - 1 {
-        block!(guard.spi.send(tx_data[i + 1]))?;
-        rx_data[i] = block!(guard.spi.read())?;
-    }
-    *rx_data.last_mut().unwrap() = block!(guard.spi.read())?;
-
-    // Disable slave
-    guard.pin_cs.set_high()?;
-
-    Ok(())
-}
-
 /// Transmit data over SPI. Ignore any received data.
 fn spi_master_tx(tx_data: &[u8]) -> Result<(), FlashError> {
     assert_ne!(tx_data.len(), 0);
@@ -289,18 +266,17 @@ pub fn flash_write_bytes(address: u32, bytes: &[u8]) -> Result<(), FlashError> {
 ///                The address is incremented automatically and once the data is written to last accessible
 ///                address - 0x01FFFF, the function returns immediately with failure if there is pending data to write.
 pub fn flash_read_byte(address: u32) -> Result<u8, FlashError> {
-    let mut rx_data = [0; 5];
-    spi_master_tx_rx(
+    let mut rx_data = [0];
+    spi_master_tx_rx_fast_read(
         &[
             BYTEREAD,
             address.to_ne_bytes()[2],
             address.to_ne_bytes()[1],
             address.to_ne_bytes()[0],
-            0x00,
         ],
         &mut rx_data,
     )?;
-    Ok(rx_data[4])
+    Ok(rx_data[0])
 }
 
 ///Reads multi-byte data starting from specified address.
