@@ -232,6 +232,7 @@ pub fn flash_write_byte(address: u32, byte: u8) -> Result<(), FlashError> {
         address.to_ne_bytes()[1],
         address.to_ne_bytes()[0],
         byte,
+        0x00,
     ])?;
     sleep_for(Duration::from_micros(20));
     Ok(())
