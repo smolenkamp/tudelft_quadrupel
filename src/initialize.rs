@@ -2,7 +2,7 @@ use crate::led::Led::Red;
 use crate::mutex::Mutex;
 use crate::time::assembly_delay;
 use crate::uart::send_bytes;
-use crate::{barometer, led, motor, mpu, time, twi, uart};
+use crate::{barometer, battery, led, motor, mpu, time, twi, uart};
 use alloc_cortex_m::CortexMHeap;
 use core::mem::MaybeUninit;
 use nrf51_pac::Peripherals;
@@ -78,6 +78,12 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], clock_frequency: 
 
     if debug {
         send_bytes(b"BAROMETER initialized\n");
+    }
+
+    battery::initialize(nrf51_peripherals.ADC, &mut cortex_m_peripherals.NVIC);
+
+    if debug {
+        send_bytes(b"ADC initialized\n");
     }
 
     motor::initialize(
