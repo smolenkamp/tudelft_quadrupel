@@ -8,7 +8,7 @@ const BUFFER_SIZE: usize = 256;
 
 /// Can be used for interfacing with the UART.
 /// It uses an interrupt to send bytes, when they're ready to send.
-pub struct UartDriver {
+struct UartDriver {
     rx_buffer: ConstGenericRingBuffer<u8, BUFFER_SIZE>,
     tx_buffer: ConstGenericRingBuffer<u8, BUFFER_SIZE>,
     tx_data_available: bool,
@@ -82,7 +82,7 @@ pub fn receive_bytes(bytes: &mut [u8]) -> usize {
 }
 
 /// Reads a single byte from the UART
-pub fn get_byte(uart: &mut LockGuard<OnceCell<UartDriver>>) -> Option<u8> {
+fn get_byte(uart: &mut LockGuard<OnceCell<UartDriver>>) -> Option<u8> {
     uart.rx_buffer.dequeue()
 }
 

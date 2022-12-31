@@ -25,7 +25,6 @@ pub mod mutex;
 pub mod once_cell;
 // TODO
 pub mod battery;
-// TODO
 pub mod barometer;
 pub mod initialize;
 pub mod led;

@@ -23,7 +23,7 @@ pub mod structs;
 const SAMPLE_RATE_DIVIDER_MPU: u8 = 0;
 const SAMPLE_RATE_DIVIDER_RAW: u8 = 0;
 
-pub struct Mpu {
+struct Mpu {
     mpu: Mpu6050<Twi<TWI0>>,
     dmp_enabled: bool,
 }

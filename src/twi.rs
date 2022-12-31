@@ -7,7 +7,7 @@ use nrf51_hal::Twi;
 use nrf51_pac::twi0::frequency::FREQUENCY_A;
 use nrf51_pac::TWI0;
 
-pub static TWI: Mutex<OnceCell<Twi<TWI0>>> = Mutex::new(OnceCell::uninitialized());
+pub(crate) static TWI: Mutex<OnceCell<Twi<TWI0>>> = Mutex::new(OnceCell::uninitialized());
 
 pub(crate) fn initialize(twi: TWI0, scl_pin: P0_04<Disconnected>, sda_pin: P0_02<Disconnected>) {
     let scl_pin = scl_pin.into_floating_input();
