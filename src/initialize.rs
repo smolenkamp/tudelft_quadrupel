@@ -1,7 +1,7 @@
 use crate::led::Led::Red;
 use crate::mutex::Mutex;
 use crate::time::assembly_delay;
-use crate::{barometer, battery, led, motor, mpu, time, twi, uart};
+use crate::{barometer, battery, led, motor, flash, mpu, time, twi, uart};
 use alloc_cortex_m::CortexMHeap;
 use core::mem::MaybeUninit;
 use nrf51_pac::Peripherals;
@@ -63,6 +63,15 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], clock_frequency: 
         &mut nrf51_peripherals.GPIOTE,
         gpio.p0_20,
     );
+    flash::initialize(
+        nrf51_peripherals.SPI1,
+        gpio.p0_17,
+        gpio.p0_18,
+        gpio.p0_00,
+        gpio.p0_13,
+        gpio.p0_11,
+        gpio.p0_09,
+    ).unwrap();
 
     // done with initialization sequence
     Red.off();

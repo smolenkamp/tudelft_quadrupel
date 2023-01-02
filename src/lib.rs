@@ -28,7 +28,6 @@ pub mod battery;
 pub mod barometer;
 pub mod initialize;
 pub mod led;
-// TODO
 pub mod flash;
 pub mod motor;
 pub mod mpu;
