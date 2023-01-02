@@ -42,7 +42,7 @@ impl From<nrf51_hal::spi::Error> for FlashError {
     }
 }
 
-pub struct SpiFlash {
+struct SpiFlash {
     spi: Spi<SPI1>,
     _pin_wp: P0_00<Output<PushPull>>,
     _pin_hold: P0_13<Output<PushPull>>,
