@@ -23,7 +23,6 @@ pub use ringbuffer;
 
 pub mod mutex;
 pub mod once_cell;
-// TODO
 pub mod battery;
 pub mod barometer;
 pub mod initialize;
@@ -34,5 +33,3 @@ pub mod mpu;
 pub mod time;
 mod twi;
 pub mod uart;
-// TODO
-mod spi;
