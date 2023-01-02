@@ -6,7 +6,7 @@ use nrf51_hal::gpio::p0::P0_20;
 use nrf51_hal::gpio::{Disconnected, Level, Output, PushPull};
 use nrf51_pac::{interrupt, Interrupt, GPIOTE, PPI};
 
-pub struct Motors {
+struct Motors {
     motor_values: [u16; 4],
     motor_max: u16,
     timer1: nrf51_pac::TIMER1,
@@ -30,7 +30,7 @@ pub fn set_motor_max(max: u16) {
 }
 
 pub fn get_motor_max() -> u16 {
-    let mut guard = MOTORS.lock();
+    let guard = MOTORS.lock();
     guard.motor_max
 }
 

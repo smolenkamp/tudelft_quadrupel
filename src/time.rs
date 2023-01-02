@@ -1,3 +1,4 @@
+use core::ops::Sub;
 use core::time::Duration;
 
 use crate::mutex::Mutex;
@@ -46,6 +47,15 @@ impl Instant {
         while self.is_later_than(Instant::now()) {
             assembly_delay(10);
         }
+    }
+}
+
+impl Sub<Self> for Instant {
+    type Output = Duration;
+
+    /// Get the [`Duration`] since a previous instant (rhs)
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.duration_since(rhs)
     }
 }
 

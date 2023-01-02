@@ -105,7 +105,7 @@ impl Led {
     }
 }
 
-pub struct Leds {
+struct Leds {
     pub led_red: P0_22<Output<PushPull>>,
     pub led_yellow: P0_24<Output<PushPull>>,
     pub led_green: P0_28<Output<PushPull>>,
