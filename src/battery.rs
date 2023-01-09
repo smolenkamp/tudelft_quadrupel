@@ -1,8 +1,8 @@
+use crate::mutex::Mutex;
+use crate::once_cell::OnceCell;
 use cortex_m::peripheral::NVIC;
 use nrf51_pac::interrupt;
 use nrf51_pac::Interrupt;
-use crate::mutex::Mutex;
-use crate::once_cell::OnceCell;
 
 struct Adc {
     adc: nrf51_pac::ADC,
@@ -35,10 +35,10 @@ pub(crate) fn initialize(adc: nrf51_pac::ADC, nvic: &mut NVIC) {
     });
 
     // Safety: The initialize function is not called inside of an interrupt-free section.
-    unsafe { NVIC::unmask(Interrupt::ADC); }
+    unsafe {
+        NVIC::unmask(Interrupt::ADC);
+    }
 }
-
-
 
 #[interrupt]
 unsafe fn ADC() {

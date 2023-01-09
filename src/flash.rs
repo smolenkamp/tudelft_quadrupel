@@ -84,7 +84,7 @@ pub(crate) fn initialize(
     flash_set_wrsr()?;
     flash_chip_erase()?;
     flash_write_enable()?;
-    return Ok(());
+    Ok(())
 }
 
 /// Transmit data over SPI. Ignore any received data.
@@ -118,12 +118,12 @@ fn spi_master_tx_rx_fast_read(tx_data: &[u8; 4], rx_data: &mut [u8]) -> Result<(
     guard.pin_cs.set_low()?;
 
     for byte in tx_data {
-        _ = block!(guard.spi.send(*byte))?;
+        block!(guard.spi.send(*byte))?;
         _ = block!(guard.spi.read())?;
     }
 
     for byte in rx_data {
-        _ = block!(guard.spi.send(0))?;
+        block!(guard.spi.send(0))?;
         *byte = block!(guard.spi.read())?;
     }
 
@@ -220,7 +220,7 @@ fn flash_set_wrsr() -> Result<(), FlashError> {
 ///
 /// @note Make sure that the memory location is cleared before writing data. If data is already present
 ///       in the memory location (given address), new data cannot be written to that memory location unless
-///   	 flash_chip_erase() function is called.
+///       flash_chip_erase() function is called.
 ///
 /// @param address any address between 0x000000 to 0x01FFFF where the data should be stored.
 /// @param data one byte data to be stored.
@@ -243,7 +243,7 @@ pub fn flash_write_byte(address: u32, byte: u8) -> Result<(), FlashError> {
 ///
 /// @note Make sure that the memory location is cleared before writing data. If data is already present
 ///       in the memory location (given address), new data cannot be written to that memory location unless
-///   	 flash_chip_erase() function is called.
+///       flash_chip_erase() function is called.
 ///
 /// @param address starting address (between 0x000000 to 0x01FFFF) from which the data should be stored.
 /// @param byte pointer to uint8_t type array containing data.
