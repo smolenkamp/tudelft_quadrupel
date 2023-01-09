@@ -1,10 +1,10 @@
-use core::time::Duration;
-use embedded_hal::prelude::_embedded_hal_blocking_i2c_WriteRead;
-use nrf51_hal::Twi;
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
 use crate::time::Instant;
 use crate::twi::TWI;
+use core::time::Duration;
+use embedded_hal::prelude::_embedded_hal_blocking_i2c_WriteRead;
+use nrf51_hal::Twi;
 
 const MS5611_ADDR: u8 = 0b01110111;
 const REG_READ: u8 = 0x0;
@@ -86,7 +86,6 @@ pub(crate) fn initialize() {
         prom[c as usize] = u16::from_be_bytes(data);
     }
 
-
     BAROMETER.lock().initialize(Ms5611 {
         pressure_sensitivity: prom[1],
         pressure_offset: prom[2],
@@ -111,7 +110,7 @@ fn update() {
                 MS5611_ADDR,
                 &[REG_D1 + baro.over_sampling_ratio.addr_modifier()],
             )
-                .unwrap();
+            .unwrap();
 
             //Then set loop state for next iteration
             baro.loop_state = Ms5611LoopState::ReadD1 {
@@ -135,7 +134,7 @@ fn update() {
                 MS5611_ADDR,
                 &[REG_D2 + baro.over_sampling_ratio.addr_modifier()],
             )
-                .unwrap();
+            .unwrap();
 
             //Then set loop state for next iteration
             baro.loop_state = Ms5611LoopState::ReadD2 {

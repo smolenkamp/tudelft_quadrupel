@@ -2,7 +2,7 @@ use crate::led::Led::Red;
 use crate::mutex::Mutex;
 use crate::time::assembly_delay;
 use crate::uart::send_bytes;
-use crate::{barometer, battery, led, motor, flash, mpu, time, twi, uart};
+use crate::{barometer, battery, flash, led, motor, mpu, time, twi, uart};
 use alloc_cortex_m::CortexMHeap;
 use core::mem::MaybeUninit;
 use nrf51_pac::Peripherals;
@@ -82,7 +82,8 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], clock_frequency: 
         gpio.p0_13,
         gpio.p0_11,
         gpio.p0_09,
-    ).unwrap();
+    )
+    .unwrap();
     if debug {
         send_bytes(b"Flash driver initialized\n");
     }
