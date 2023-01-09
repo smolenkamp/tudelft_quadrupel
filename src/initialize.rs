@@ -1,6 +1,7 @@
 use crate::led::Led::Red;
 use crate::mutex::Mutex;
 use crate::time::assembly_delay;
+use crate::uart::send_bytes;
 use crate::{barometer, battery, led, motor, flash, mpu, time, twi, uart};
 use alloc_cortex_m::CortexMHeap;
 use core::mem::MaybeUninit;
@@ -20,7 +21,7 @@ static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 /// clock_frequency determines the minimum delay / sleep time that can be set up. For example,
 /// if the clock frequency is 100 hertz, sleeping for 1ms is not possible. The smallest sleep
 /// time achievable with a 100 hertz clock is 10ms.
-pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], clock_frequency: u8) {
+pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], clock_frequency: u8, debug: bool) {
     // Allow time for PC to start up. The drone board starts running code immediately after upload,
     // but at that time the PC may not be listening on UART etc.
     assembly_delay(2500000);
@@ -50,19 +51,29 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], clock_frequency: 
     Red.on();
 
     uart::initialize(nrf51_peripherals.UART0, &mut cortex_m_peripherals.NVIC);
+    if debug {
+        send_bytes(b"UART driver initialized\n");
+    }
     time::initialize(nrf51_peripherals.RTC0, clock_frequency);
+    if debug {
+        send_bytes(b"RTC driver initialized\n");
+    }
     twi::initialize(nrf51_peripherals.TWI0, gpio.p0_04, gpio.p0_02);
+    if debug {
+        send_bytes(b"TWI initialized\n");
+    }
     mpu::initialize();
+    if debug {
+        send_bytes(b"MPU driver initialized\n");
+    }
     barometer::initialize();
+    if debug {
+        send_bytes(b"Barometer driver initialized\n");
+    }
     battery::initialize(nrf51_peripherals.ADC, &mut cortex_m_peripherals.NVIC);
-    motor::initialize(
-        nrf51_peripherals.TIMER1,
-        nrf51_peripherals.TIMER2,
-        &mut cortex_m_peripherals.NVIC,
-        &mut nrf51_peripherals.PPI,
-        &mut nrf51_peripherals.GPIOTE,
-        gpio.p0_20,
-    );
+    if debug {
+        send_bytes(b"Battery driver initialized\n");
+    }
     flash::initialize(
         nrf51_peripherals.SPI1,
         gpio.p0_17,
@@ -72,6 +83,20 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], clock_frequency: 
         gpio.p0_11,
         gpio.p0_09,
     ).unwrap();
+    if debug {
+        send_bytes(b"Flash driver initialized\n");
+    }
+    motor::initialize(
+        nrf51_peripherals.TIMER1,
+        nrf51_peripherals.TIMER2,
+        &mut cortex_m_peripherals.NVIC,
+        &mut nrf51_peripherals.PPI,
+        &mut nrf51_peripherals.GPIOTE,
+        gpio.p0_20,
+    );
+    if debug {
+        send_bytes(b"MOTOR driver initialized\n");
+    }
 
     // done with initialization sequence
     Red.off();
