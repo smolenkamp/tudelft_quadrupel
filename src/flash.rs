@@ -84,7 +84,7 @@ pub(crate) fn initialize(
     flash_set_wrsr()?;
     flash_chip_erase()?;
     flash_write_enable()?;
-    return Ok(());
+    Ok(())
 }
 
 /// Transmit data over SPI. Ignore any received data.
@@ -118,12 +118,12 @@ fn spi_master_tx_rx_fast_read(tx_data: &[u8; 4], rx_data: &mut [u8]) -> Result<(
     guard.pin_cs.set_low()?;
 
     for byte in tx_data {
-        _ = block!(guard.spi.send(*byte))?;
+        block!(guard.spi.send(*byte))?;
         _ = block!(guard.spi.read())?;
     }
 
     for byte in rx_data {
-        _ = block!(guard.spi.send(0))?;
+        block!(guard.spi.send(0))?;
         *byte = block!(guard.spi.read())?;
     }
 

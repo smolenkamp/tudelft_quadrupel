@@ -248,8 +248,7 @@ where
     pub fn disable_sleep(&mut self, i2c: &mut I2c) -> Result<(), Error<I2c>> {
         let mut value = self.read_register(i2c, Register::PwrMgmt1)?;
         value &= !(1 << 6);
-        let res = self.write_register(i2c, Register::PwrMgmt1, value);
-        res
+        self.write_register(i2c, Register::PwrMgmt1, value)
     }
 
     pub fn accel(&mut self, i2c: &mut I2c) -> Result<Accel, Error<I2c>> {
