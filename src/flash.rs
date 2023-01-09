@@ -220,7 +220,7 @@ fn flash_set_wrsr() -> Result<(), FlashError> {
 ///
 /// @note Make sure that the memory location is cleared before writing data. If data is already present
 ///       in the memory location (given address), new data cannot be written to that memory location unless
-///   	 flash_chip_erase() function is called.
+///       flash_chip_erase() function is called.
 ///
 /// @param address any address between 0x000000 to 0x01FFFF where the data should be stored.
 /// @param data one byte data to be stored.
@@ -243,7 +243,7 @@ pub fn flash_write_byte(address: u32, byte: u8) -> Result<(), FlashError> {
 ///
 /// @note Make sure that the memory location is cleared before writing data. If data is already present
 ///       in the memory location (given address), new data cannot be written to that memory location unless
-///   	 flash_chip_erase() function is called.
+///       flash_chip_erase() function is called.
 ///
 /// @param address starting address (between 0x000000 to 0x01FFFF) from which the data should be stored.
 /// @param byte pointer to uint8_t type array containing data.

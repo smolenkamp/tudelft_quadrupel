@@ -67,12 +67,12 @@ where
         response: &mut [u8],
     ) -> Result<(), Error<I2c>> {
         i2c.write_read(MPU6050_ADDRESS, bytes, response)
-            .map_err(|e| Error::WriteReadError(e))
+            .map_err(|e| Error::WriteRead(e))
     }
 
     pub(crate) fn write(&mut self, i2c: &mut I2c, bytes: &[u8]) -> Result<(), Error<I2c>> {
         i2c.write(MPU6050_ADDRESS, bytes)
-            .map_err(|e| Error::WriteError(e))
+            .map_err(|e| Error::Write(e))
     }
 
     pub(crate) fn read_register(&mut self, i2c: &mut I2c, reg: Register) -> Result<u8, Error<I2c>> {
