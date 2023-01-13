@@ -1,3 +1,4 @@
+use core::arch::asm;
 use core::ops::Sub;
 use core::time::Duration;
 
@@ -108,3 +109,40 @@ pub(crate) fn initialize(clock: RTC0, clock_frequency: u8) {
 
     rtc.0.enable_counter();
 }
+
+/// Delay the program for a time using assembly instructions.
+/// Testing shows this overshoots by ~5%, which is the closest that is possible without undershooting.
+#[allow(unused_assignments)]
+pub fn delay_us_assembly(mut number_of_us: u32) {
+    unsafe
+        {
+            asm!(
+            "1:",
+            "subs {}, #1",
+            "nop",
+            "nop",
+            "nop",
+            "nop",
+            "nop",
+            "nop",
+            "nop",
+            "nop",
+            "nop",
+            "nop",
+            "nop",
+            "nop",
+            "bne 1b",
+            inout(reg) number_of_us,
+            options(nomem, nostack)
+            )
+        }
+}
+
+/// Delay the program for a time using assembly instructions.
+/// Testing shows this overshoots by ~5%, which is the closest that is possible without undershooting.
+pub fn delay_ms_assembly(number_of_ms: u32) {
+    for _ in 0..number_of_ms {
+        delay_us_assembly(999);
+    }
+}
+

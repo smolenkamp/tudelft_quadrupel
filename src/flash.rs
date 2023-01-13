@@ -1,7 +1,5 @@
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
-use crate::time::sleep_for;
-use core::time::Duration;
 use nb::block;
 use nrf51_hal::gpio::p0::*;
 use nrf51_hal::gpio::Level;
@@ -11,6 +9,7 @@ use nrf51_hal::spi::{Frequency, Pins};
 use nrf51_hal::spi::{FullDuplex, MODE_0};
 use nrf51_hal::Spi;
 use nrf51_pac::SPI1;
+use crate::time::{delay_ms_assembly, delay_us_assembly};
 
 const WRSR: u8 = 0x01;
 const BYTEWRITE: u8 = 0x02;
@@ -99,9 +98,9 @@ fn spi_master_tx(tx_data: &[u8]) -> Result<(), FlashError> {
     block!(guard.spi.send(tx_data[0]))?;
     for i in 0..tx_data.len() - 1 {
         block!(guard.spi.send(tx_data[i + 1]))?;
-        _ = block!(guard.spi.read())?;
+        let _ = block!(guard.spi.read())?;
     }
-    _ = block!(guard.spi.read())?;
+    let _ = block!(guard.spi.read())?;
 
     // Disable slave
     guard.pin_cs.set_high()?;
@@ -119,7 +118,7 @@ fn spi_master_tx_rx_fast_read(tx_data: &[u8; 4], rx_data: &mut [u8]) -> Result<(
 
     for byte in tx_data {
         block!(guard.spi.send(*byte))?;
-        _ = block!(guard.spi.read())?;
+        let _ = block!(guard.spi.read())?;
     }
 
     for byte in rx_data {
@@ -147,26 +146,26 @@ fn spi_master_tx_rx_fast_write(tx_data: &[u8; 4], bytes: &[u8]) -> Result<(), Fl
 
     for byte in tx_data {
         block!(guard.spi.send(*byte))?;
-        _ = block!(guard.spi.read())?;
+        let _ = block!(guard.spi.read())?;
     }
 
     // Send first byte
     block!(guard.spi.send(bytes[0]))?;
-    _ = block!(guard.spi.read())?;
+    let _ = block!(guard.spi.read())?;
 
     // Disable slave
     guard.pin_cs.set_high()?;
 
     for i in 1..bytes.len() {
-        sleep_for(Duration::from_micros(15));
+        delay_us_assembly(15);
 
         // Enable slave
         guard.pin_cs.set_low()?;
         block!(guard.spi.send(AAI))?;
-        _ = block!(guard.spi.read())?;
+        let _ = block!(guard.spi.read())?;
 
         block!(guard.spi.send(bytes[i]))?;
-        _ = block!(guard.spi.read())?;
+        let _ = block!(guard.spi.read())?;
 
         bytes_written += 1;
 
@@ -178,14 +177,14 @@ fn spi_master_tx_rx_fast_write(tx_data: &[u8; 4], bytes: &[u8]) -> Result<(), Fl
         }
     }
 
-    sleep_for(Duration::from_micros(20));
+    delay_us_assembly(20);
 
     // Enable slave
     guard.pin_cs.set_low()?;
 
     //Send WRDI
     block!(guard.spi.send(WRDI))?;
-    _ = block!(guard.spi.read())?;
+    let _ = block!(guard.spi.read())?;
 
     // Disable slave
     guard.pin_cs.set_high()?;
@@ -202,7 +201,7 @@ fn flash_write_enable() -> Result<(), FlashError> {
 pub fn flash_chip_erase() -> Result<(), FlashError> {
     flash_write_enable()?;
     spi_master_tx(&[CHIP_ERASE])?;
-    sleep_for(Duration::from_millis(100));
+    delay_ms_assembly(100);
     Ok(())
 }
 
@@ -234,7 +233,7 @@ pub fn flash_write_byte(address: u32, byte: u8) -> Result<(), FlashError> {
         byte,
         0x00,
     ])?;
-    sleep_for(Duration::from_micros(20));
+    delay_us_assembly(20);
     Ok(())
 }
 
@@ -298,3 +297,4 @@ pub fn flash_read_bytes(address: u32, buffer: &mut [u8]) -> Result<(), FlashErro
     )?;
     Ok(())
 }
+
