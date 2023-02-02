@@ -114,28 +114,27 @@ pub(crate) fn initialize(clock: RTC0, clock_frequency: u8) {
 /// Testing shows this overshoots by ~5%, which is the closest that is possible without undershooting.
 #[allow(unused_assignments)]
 pub fn delay_us_assembly(mut number_of_us: u32) {
-    unsafe
-        {
-            asm!(
-            "1:",
-            "subs {}, #1",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "nop",
-            "bne 1b",
-            inout(reg) number_of_us,
-            options(nomem, nostack)
-            )
-        }
+    unsafe {
+        asm!(
+        "1:",
+        "subs {}, #1",
+        "nop",
+        "nop",
+        "nop",
+        "nop",
+        "nop",
+        "nop",
+        "nop",
+        "nop",
+        "nop",
+        "nop",
+        "nop",
+        "nop",
+        "bne 1b",
+        inout(reg) number_of_us,
+        options(nomem, nostack)
+        )
+    }
 }
 
 /// Delay the program for a time using assembly instructions.
@@ -145,4 +144,3 @@ pub fn delay_ms_assembly(number_of_ms: u32) {
         delay_us_assembly(999);
     }
 }
-

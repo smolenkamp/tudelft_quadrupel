@@ -1,5 +1,6 @@
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
+use crate::time::{delay_ms_assembly, delay_us_assembly};
 use nb::block;
 use nrf51_hal::gpio::p0::*;
 use nrf51_hal::gpio::Level;
@@ -9,7 +10,6 @@ use nrf51_hal::spi::{Frequency, Pins};
 use nrf51_hal::spi::{FullDuplex, MODE_0};
 use nrf51_hal::Spi;
 use nrf51_pac::SPI1;
-use crate::time::{delay_ms_assembly, delay_us_assembly};
 
 const WRSR: u8 = 0x01;
 const BYTEWRITE: u8 = 0x02;
@@ -297,4 +297,3 @@ pub fn flash_read_bytes(address: u32, buffer: &mut [u8]) -> Result<(), FlashErro
     )?;
     Ok(())
 }
-
