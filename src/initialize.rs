@@ -1,4 +1,4 @@
-use crate::led::Led::Red;
+use crate::led::Led::Yellow;
 use crate::mutex::Mutex;
 use crate::time::assembly_delay;
 use crate::uart::send_bytes;
@@ -48,7 +48,7 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], clock_frequency: 
     // signal that leds have initialized
     // and that the other initialization processes are going on.
     // this also means that the processor at least booted successfully.
-    Red.on();
+    Yellow.on();
 
     uart::initialize(nrf51_peripherals.UART0, &mut cortex_m_peripherals.NVIC);
     if debug {
@@ -100,5 +100,5 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], clock_frequency: 
     }
 
     // done with initialization sequence
-    Red.off();
+    Yellow.off();
 }
