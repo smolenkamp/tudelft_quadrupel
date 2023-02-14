@@ -20,7 +20,7 @@ impl<T> OnceCell<T> {
     /// Initialize an empty [`OnceCell`] with a value.
     pub fn initialize(&mut self, value: T) {
         assert!(self.v.is_none(), "already initialized");
-        self.v = Some(value)
+        self.v = Some(value);
     }
 
     /// Check if the [`once_cell`] is already initialized
@@ -29,8 +29,9 @@ impl<T> OnceCell<T> {
     }
 
     /// Uninitialize the once_cell.
-    /// note: you probably don't want this
-    pub fn uninitialize(&mut self) {
+    /// NOTE: you probably don't want this
+    /// SAFETY: some code may depend on things being initialized.
+    pub unsafe fn uninitialize(&mut self) {
         self.v = None;
     }
 }

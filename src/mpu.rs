@@ -34,7 +34,9 @@ pub(crate) fn initialize() {
     let twi: &mut Twi<_> = &mut TWI.lock();
 
     let mut mpu = Mpu6050::new(twi).unwrap();
+
     mpu.initialize_dmp(twi).unwrap();
+
     mpu.set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_MPU)
         .unwrap();
     mpu.set_digital_lowpass_filter(twi, DigitalLowPassFilter::Filter5)

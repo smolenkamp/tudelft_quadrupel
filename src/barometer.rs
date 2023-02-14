@@ -1,10 +1,10 @@
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
-use crate::time::Instant;
 use crate::twi::TWI;
 use core::time::Duration;
 use embedded_hal::prelude::_embedded_hal_blocking_i2c_WriteRead;
 use nrf51_hal::Twi;
+use crate::time::Instant;
 
 const MS5611_ADDR: u8 = 0b01110111;
 const REG_READ: u8 = 0x0;

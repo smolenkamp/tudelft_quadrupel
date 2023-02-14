@@ -21,7 +21,7 @@ static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 /// clock_frequency determines the minimum delay / sleep time that can be set up. For example,
 /// if the clock frequency is 100 hertz, sleeping for 1ms is not possible. The smallest sleep
 /// time achievable with a 100 hertz clock is 10ms.
-pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], clock_frequency: u8, debug: bool) {
+pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], debug: bool) {
     // Allow time for PC to start up. The drone board starts running code immediately after upload,
     // but at that time the PC may not be listening on UART etc.
     assembly_delay(2500000);
@@ -54,7 +54,7 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], clock_frequency: 
     if debug {
         send_bytes(b"UART driver initialized\n");
     }
-    time::initialize(nrf51_peripherals.RTC0, clock_frequency);
+    time::initialize(nrf51_peripherals.RTC0, &mut cortex_m_peripherals.NVIC);
     if debug {
         send_bytes(b"RTC driver initialized\n");
     }

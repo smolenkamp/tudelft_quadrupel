@@ -1,13 +1,17 @@
 use core::arch::asm;
 use core::ops::Sub;
+use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::Duration;
+use nrf51_pac::interrupt;
 
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
 /// Delay for a number of CPU cycles. Very inaccurate
 /// and hard to convert to an exact number of seconds
 pub use cortex_m::asm::delay as assembly_delay;
+use cortex_m::peripheral::NVIC;
 use nrf51_hal::Rtc;
+use nrf51_hal::rtc::{RtcCompareReg, RtcInterrupt};
 use nrf51_pac::RTC0;
 
 /// A moment in time
@@ -20,7 +24,7 @@ impl Instant {
     /// Return the current instant, i.e. the current time
     pub fn now() -> Self {
         Self {
-            time: get_time_us(),
+            time: get_time_ns(),
         }
     }
 
@@ -40,15 +44,6 @@ impl Instant {
     pub fn is_later_than(self, other: Self) -> bool {
         self.time > other.time
     }
-
-    /// Wait until this instant has passed. If this instant is a moment in the future,
-    /// wait until that moment in the future.
-    pub fn sleep_until(self) {
-        // while the time we want to wait until is in the future (larger than now)
-        while self.is_later_than(Instant::now()) {
-            assembly_delay(10);
-        }
-    }
 }
 
 impl Sub<Self> for Instant {
@@ -60,54 +55,62 @@ impl Sub<Self> for Instant {
     }
 }
 
-/// Wait for this duration.
-pub fn sleep_for(d: Duration) {
-    Instant::now().add_duration(d).sleep_until();
-}
+// RTC0 is used for measuring absolute instants
+static RTC: Mutex<OnceCell<Rtc<RTC0>>> = Mutex::new(OnceCell::uninitialized());
 
-pub fn loop_at_freq(hz: u64, mut f: impl FnMut(Instant, Duration)) -> ! {
-    let mut last = Instant::now();
-    loop {
-        let start = Instant::now();
-        f(start, start.duration_since(last));
-        let done = Instant::now();
+/// take the highest prescaler
+/// NOTE: change the period below when changing the prescaler
+const PRESCALER: u32 = 0;
+/// giving a period of this many nanoseconds
+const PERIOD: u64 = 30517;
 
-        let expected_duration = Duration::from_nanos(1_000_000_000 / hz);
-        let actual_duration = done.duration_since(start);
+/// is set to true when the timer interrupt has gone off.
+/// Used to wait on the timer interrupt in [`wait_for_interrupt`]
+static TIMER_FLAG: AtomicBool = AtomicBool::new(false);
 
-        if actual_duration < expected_duration {
-            sleep_for(expected_duration - actual_duration);
-        }
+/// Global time in magic timer units ([`PERIOD`]) since timers started
+/// SAFETY: only changed within timer interrupt. Safe to read at all times
+static GLOBAL_TIME: Mutex<u64> = Mutex::new(0);
 
-        last = start;
-    }
-}
-
-static RTC: Mutex<OnceCell<(Rtc<RTC0>, u64)>> = Mutex::new(OnceCell::uninitialized());
-
-fn get_time_us() -> u64 {
-    let rtc = RTC.lock();
-    let counter = rtc.0.get_counter();
-
-    counter as u64 * rtc.1
-}
-
-/// TODO: better docs on what's going on here
-/// TODO: maybe just use the largest frequency possible. This makes an
-///       overflow occur ever 512 seconds. We need some way to detect this and
-///       track it so our clock keeps working well.
-pub(crate) fn initialize(clock: RTC0, clock_frequency: u8) {
+pub(crate) fn initialize(clock_instance: RTC0, nvic: &mut NVIC) {
     let mut rtc = RTC.lock();
-    // calculate closest prescaler based on frequency
-    let prescaler = (32_768 / clock_frequency as u32) + 1;
 
-    // now work back to the frequency, convert that to a wavelength, and base
-    // it on nanoseconds instead of seconds so we don't get a decimal number
-    let period = ((prescaler as u64 + 1) * 1000 * 1000 * 1000) / 32_768u64;
+    rtc.initialize(Rtc::new(clock_instance, PRESCALER).unwrap());
+    rtc.enable_counter();
+    rtc.enable_interrupt(RtcInterrupt::Compare0, Some(nvic));
+}
 
-    rtc.initialize((Rtc::new(clock, prescaler).unwrap(), period));
+// get the current global time in nanoseconds. The precision is not necessarily in single nanoseconds
+fn get_time_ns() -> u64 {
+    // SAFETY: reads to this variable are always safe, since ARM guarantees
+    (*GLOBAL_TIME.lock() + RTC.lock().get_counter() as u64) * PERIOD
+}
 
-    rtc.0.enable_counter();
+#[interrupt]
+unsafe fn RTC1() {
+    // SAFETY: we're in an interrupt so this code cannot be run concurrently anyway
+    let rtc = RTC.no_critical_section_lock();
+    // SAFETY: we're in an interrupt so this code cannot be run concurrently anyway
+    let global_time = GLOBAL_TIME.no_critical_section_lock();
+
+    *global_time += rtc.get_counter() as u64;
+
+    rtc.clear_counter();
+    TIMER_FLAG.store(true, Ordering::SeqCst);
+}
+
+pub fn wait_for_interrupt() {
+    while !TIMER_FLAG.load(Ordering::SeqCst) {}
+    TIMER_FLAG.store(false, Ordering::SeqCst);
+}
+
+pub fn set_interrupt_frequency(hz: u64) {
+    let mut rtc = RTC.lock();
+
+    let counter_setting = (1_000_000_000 / hz) / PERIOD;
+    assert!(counter_setting < (1 << 24));
+
+    rtc.set_compare(RtcCompareReg::Compare0, counter_setting as u32).unwrap();
 }
 
 /// Delay the program for a time using assembly instructions.

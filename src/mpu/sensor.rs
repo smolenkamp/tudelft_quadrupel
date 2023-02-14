@@ -4,7 +4,7 @@ use crate::mpu::config::{AccelFullScale, ClockSource, DigitalLowPassFilter};
 use crate::mpu::error::Error;
 use crate::mpu::registers::Register;
 use crate::mpu::structs::{Accel, Gyro};
-use crate::time::sleep_for;
+use crate::time::delay_ms_assembly;
 use core::marker::PhantomData;
 use core::time::Duration;
 use embedded_hal::blocking::i2c::{Write, WriteRead};
@@ -108,7 +108,7 @@ where
         let mut value = self.read_register(i2c, Register::PwrMgmt1)?;
         value |= 1 << 7;
         self.write_register(i2c, Register::PwrMgmt1, value)?;
-        sleep_for(Duration::from_millis(200));
+        delay_ms_assembly(200);
         Ok(())
     }
 
@@ -117,7 +117,7 @@ where
         let mut value = self.read_register(i2c, Register::UserCtrl)?;
         value |= 1 << 0;
         self.write_register(i2c, Register::UserCtrl, value)?;
-        sleep_for(Duration::from_millis(200));
+        delay_ms_assembly(200);
         Ok(())
     }
 
