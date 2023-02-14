@@ -6,6 +6,8 @@ use nrf51_hal::gpio::{Disconnected, Level, Output, PushPull};
 use nrf51_hal::prelude::{OutputPin, StatefulOutputPin};
 use void::ResultVoidExt;
 
+/// There are four leds on control board, these can be accessed using this enum.
+/// For example, to toggle the red led use `Led::Red.toggle()`.
 #[derive(Copy, Clone)]
 pub enum Led {
     Red,

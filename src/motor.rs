@@ -32,6 +32,7 @@ pub fn set_motor_max(max: u16) {
     guard.motor_max = max;
 }
 
+/// This gets the maximum motor value that the motor driver will cap the motor values at. This is 400 by default.
 pub fn get_motor_max() -> u16 {
     let guard = MOTORS.lock();
     guard.motor_max
