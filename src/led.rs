@@ -103,7 +103,6 @@ impl Led {
 
     /// Toggle this led. If it was on, it now turns off. If it was off, it now turns on.
     /// Returns the state of the led after toggling true = on, false = off.
-    #[must_use]
     pub fn toggle(self) -> bool {
         // create a critical section here, so an interrupt cannot occur
         // between is_enabled and the actual enable call. This immediately

@@ -14,7 +14,7 @@ description = "Hardware support library for the quadrupel drone project (embedde
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ringbuffer = "0.11.1"
+ringbuffer = "0.12.0"
 cortex-m = "0.7.6"
 alloc-cortex-m = "0.4.3"
 cortex-m-rt = "0.7.3"
