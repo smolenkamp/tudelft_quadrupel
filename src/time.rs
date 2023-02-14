@@ -1,4 +1,3 @@
-use alloc::format;
 use core::arch::asm;
 use core::ops::Sub;
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -14,8 +13,6 @@ use cortex_m::peripheral::NVIC;
 use nrf51_hal::Rtc;
 use nrf51_hal::rtc::{RtcCompareReg, RtcInterrupt};
 use nrf51_pac::RTC0;
-use crate::led::Led::Green;
-use crate::uart::send_bytes;
 
 /// A moment in time
 #[derive(Debug, Copy, Clone)]
@@ -51,6 +48,12 @@ impl Instant {
     /// Note: `Instant` also implements `Ord`, so you can use the comparison operators instead of this function.
     pub fn is_later_than(self, other: Self) -> bool {
         self.time > other.time
+    }
+
+    /// Returns how many nanoseconds passed between when the timers started
+    /// and the current time. This is essentially what an `Instant` inherently represents.
+    pub fn ns_since_start(&self) -> u64 {
+        self.time
     }
 }
 
@@ -91,6 +94,8 @@ static RTC: Mutex<OnceCell<Rtc<RTC0>>> = Mutex::new(OnceCell::uninitialized());
 const PRESCALER: u32 = 0;
 /// giving a period of this many nanoseconds
 const PERIOD: u64 = 30517;
+/// the largest value of the rtc counter before it overflows
+const COUNTER_MAX: u32 = 1<<24;
 
 /// is set to true when the timer interrupt has gone off.
 /// Used to wait on the timer interrupt in [`wait_for_interrupt`]
@@ -99,6 +104,12 @@ static TIMER_FLAG: AtomicBool = AtomicBool::new(false);
 /// Global time in magic timer units ([`PERIOD`]) since timers started
 /// SAFETY: only changed within timer interrupt. Safe to read at all times
 static GLOBAL_TIME: Mutex<u64> = Mutex::new(0);
+
+/// what was the counter before, so we can find the difference with what it's now.
+static PREV_COUNTER: AtomicU32 = AtomicU32::new(0);
+
+/// the number of counts until the interrupt should fire again
+static COUNTER_PERIOD: AtomicU32 = AtomicU32::new(0);
 
 pub(crate) fn initialize(clock_instance: RTC0, nvic: &mut NVIC) {
     let mut rtc = RTC.lock();
@@ -111,35 +122,49 @@ pub(crate) fn initialize(clock_instance: RTC0, nvic: &mut NVIC) {
 
 // get the current global time in nanoseconds. The precision is not necessarily in single nanoseconds
 fn get_time_ns() -> u64 {
-    cortex_m::interrupt::free(|_| {
-        let global_time = GLOBAL_TIME.lock();
-        let counter = RTC.lock().get_counter();
+    // the number of periods of the clock that passed in total
+    let global_time = GLOBAL_TIME.lock();
+    // the current state of the clock
+    let counter = RTC.lock().get_counter();
+    // the previous state of the clock, when the global_time was last updated
+    let prev_counter = PREV_COUNTER.load(Ordering::SeqCst);
+    // take the global time, and add to that how much time has passed since the last interrupt
+    let time = (*global_time + counter_diff(prev_counter, counter) as u64) * PERIOD;
 
-        let time = (*global_time + counter as u64) * PERIOD;
+    time
+}
 
-        send_bytes(format!("global: {} ctr: {}\n", *global_time, counter).as_bytes());
-
-        time
-    })
+/// neatly calculates a difference in clockcycles between two rtc counter values
+/// essentially a subtraction modulo `COUNTER_MAX`
+fn counter_diff(prev: u32, curr: u32) -> u32 {
+    if curr < prev {
+        // what's left to go until the max
+        // plus what we've done since 0
+        (COUNTER_MAX - prev) + curr
+    } else {
+        curr - prev
+    }
 }
 
 #[interrupt]
 unsafe fn RTC0() {
     // SAFETY: we're in an interrupt so this code cannot be run concurrently anyway
-    let mut rtc = RTC.lock();
+    let rtc = RTC.no_critical_section_lock();
     // SAFETY: we're in an interrupt so this code cannot be run concurrently anyway
-    let mut global_time = GLOBAL_TIME.lock();
+    let global_time = GLOBAL_TIME.no_critical_section_lock();
 
     if rtc.is_event_triggered(RtcInterrupt::Compare0) {
-        *global_time += rtc.get_counter() as u64;
+        let counter = rtc.get_counter();
+        let prev_counter = PREV_COUNTER.load(Ordering::SeqCst);
 
-        rtc.clear_counter();
-        while rtc.get_counter() != 0 {}
+        *global_time += counter_diff(prev_counter, counter) as u64;
+        PREV_COUNTER.store(counter, Ordering::SeqCst);
 
+
+        rtc.set_compare(RtcCompareReg::Compare0, counter + COUNTER_PERIOD.load(Ordering::SeqCst)).unwrap();
         rtc.reset_event(RtcInterrupt::Compare0);
         TIMER_FLAG.store(true, Ordering::SeqCst);
     }
-
 }
 
 /// Wait for the next interrupt configured by `set_interrupt_frequency`.
@@ -156,7 +181,9 @@ pub fn set_tick_frequency(hz: u64) {
     let mut rtc = RTC.lock();
 
     let counter_setting = (1_000_000_000 / hz) / PERIOD;
-    assert!(counter_setting < (1 << 24));
+    assert!(counter_setting < (1 << 24), "counter period should be less than 1<<24 (roughly 6 minutes with the default PRESCALER settings)");
+
+    COUNTER_PERIOD.store(counter_setting as u32, Ordering::SeqCst);
 
     rtc.set_compare(RtcCompareReg::Compare0, counter_setting as u32).unwrap();
     rtc.clear_counter();
