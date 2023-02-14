@@ -1,3 +1,4 @@
+use alloc::format;
 use core::arch::asm;
 use core::ops::Sub;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -13,6 +14,8 @@ use cortex_m::peripheral::NVIC;
 use nrf51_hal::Rtc;
 use nrf51_hal::rtc::{RtcCompareReg, RtcInterrupt};
 use nrf51_pac::RTC0;
+use crate::led::Led::Green;
+use crate::uart::send_bytes;
 
 /// A moment in time
 #[derive(Debug, Copy, Clone)]
@@ -76,41 +79,52 @@ pub(crate) fn initialize(clock_instance: RTC0, nvic: &mut NVIC) {
     let mut rtc = RTC.lock();
 
     rtc.initialize(Rtc::new(clock_instance, PRESCALER).unwrap());
-    rtc.enable_counter();
+    rtc.enable_event(RtcInterrupt::Compare0);
     rtc.enable_interrupt(RtcInterrupt::Compare0, Some(nvic));
+    rtc.enable_counter();
 }
 
 // get the current global time in nanoseconds. The precision is not necessarily in single nanoseconds
 fn get_time_ns() -> u64 {
-    // SAFETY: reads to this variable are always safe, since ARM guarantees
-    (*GLOBAL_TIME.lock() + RTC.lock().get_counter() as u64) * PERIOD
+    let global_time = GLOBAL_TIME.lock();
+    let counter = RTC.lock().get_counter();
+    send_bytes(format!("global: {} ctr: {}\n", *global_time, counter).as_bytes());
+
+    (*global_time + counter as u64) * PERIOD
 }
 
 #[interrupt]
-unsafe fn RTC1() {
+unsafe fn RTC0() {
     // SAFETY: we're in an interrupt so this code cannot be run concurrently anyway
     let rtc = RTC.no_critical_section_lock();
     // SAFETY: we're in an interrupt so this code cannot be run concurrently anyway
     let global_time = GLOBAL_TIME.no_critical_section_lock();
 
-    *global_time += rtc.get_counter() as u64;
+    if rtc.is_event_triggered(RtcInterrupt::Compare0) {
+        *global_time += rtc.get_counter() as u64;
 
-    rtc.clear_counter();
-    TIMER_FLAG.store(true, Ordering::SeqCst);
+        rtc.clear_counter();
+        rtc.reset_event(RtcInterrupt::Compare0);
+        TIMER_FLAG.store(true, Ordering::SeqCst);
+    }
+
 }
 
-pub fn wait_for_interrupt() {
-    while !TIMER_FLAG.load(Ordering::SeqCst) {}
+pub fn wait_for_next_tick() {
+    while !TIMER_FLAG.load(Ordering::SeqCst) {
+        cortex_m::asm::wfi();
+    }
     TIMER_FLAG.store(false, Ordering::SeqCst);
 }
 
-pub fn set_interrupt_frequency(hz: u64) {
+pub fn set_tick_frequency(hz: u64) {
     let mut rtc = RTC.lock();
 
     let counter_setting = (1_000_000_000 / hz) / PERIOD;
     assert!(counter_setting < (1 << 24));
 
     rtc.set_compare(RtcCompareReg::Compare0, counter_setting as u32).unwrap();
+    rtc.clear_counter();
 }
 
 /// Delay the program for a time using assembly instructions.
