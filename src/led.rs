@@ -38,7 +38,7 @@ impl Led {
     pub fn on(self) {
         // SAFETY: we don't need a critical section here since writing
         // to leds is an atomic operation already. This is as from the
-        // inline comments from the `nrf_51` crate on `set_high`.
+        // inline comments from the `nrf_51` crate on `set_low`.
         //
         // NOTE: single writes on ARM are always atomic so this makes sense.
         let leds = unsafe { LEDS.no_critical_section_lock() };
@@ -55,9 +55,9 @@ impl Led {
 
     /// Checks whether a led is off or not. Returns true if the led was on.
     pub fn is_off(self) -> bool {
-        // SAFETY: we don't need a critical section here since writing
-        // to leds is an atomic operation already. This is as from the
-        // inline comments from the `nrf_51` crate on `set_high`.
+        // SAFETY: we don't need a critical section here since reading from
+        // leds is an atomic operation already. This is as from the
+        // inline comments from the `nrf_51` crate on `is_set_high`.
         //
         // NOTE: single writes on ARM are always atomic so this makes sense.
         let leds = unsafe { LEDS.no_critical_section_lock() };

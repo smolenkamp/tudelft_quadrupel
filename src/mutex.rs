@@ -5,6 +5,9 @@ use cortex_m::interrupt::{disable, enable};
 use cortex_m::register::primask;
 use cortex_m::register::primask::Primask;
 
+/// A mutual exclusion primitive useful for protecting shared data. It works by disabling interrupts while the lock is being held.
+///
+/// This is implementation is only sound on the NRF51822 or other single-core processors.
 pub struct Mutex<T> {
     inner: UnsafeCell<T>,
 }
@@ -26,12 +29,16 @@ pub struct Mutex<T> {
 unsafe impl<T> Sync for Mutex<T> {}
 
 impl<T> Mutex<T> {
+    /// Create a new Mutex.
     pub const fn new(v: T) -> Self {
         Self {
             inner: UnsafeCell::new(v),
         }
     }
 
+    /// This function gets a reference to the inner `T` by locking the lock.
+    ///
+    /// This disables interrupts while the `LockGuard` returned by this function is alive.
     pub fn lock(&self) -> LockGuard<T> {
         let primask = primask::read();
 
@@ -67,6 +74,8 @@ impl<T> Mutex<T> {
     }
 }
 
+/// A LockGuard is an object that, as long as it is alive, means the corresponding mutex is locked.
+/// The mutex is unlocked when this object is automatically dropped or explicitly dropped using `drop`.
 pub struct LockGuard<'a, T> {
     inner: &'a mut T,
     primask: Primask,

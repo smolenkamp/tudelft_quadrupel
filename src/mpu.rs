@@ -82,6 +82,7 @@ pub fn enable_dmp() -> Result<(), Error<Twi<TWI0>>> {
 
 /// This reads the most recent angle from the DMP, if there are any new ones available.
 /// If there is no new angle available, it returns `WouldBlock`.
+/// Do not call this function if the DMP is disabled.
 pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<Twi<TWI0>>> {
     let twi: &mut Twi<_> = &mut TWI.lock();
     let mpu: &mut Mpu = &mut MPU.lock();
@@ -106,6 +107,7 @@ pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<Twi<TWI0>>> {
 }
 
 /// This reads the most recent acceleration and gyroscope information from the MPU.
+/// This function can be called both if the DMP is enabled or disabled.
 pub fn read_raw() -> Result<(Accel, Gyro), Error<Twi<TWI0>>> {
     let twi: &mut Twi<_> = &mut TWI.lock();
     let mpu: &mut Mpu = &mut MPU.lock();
