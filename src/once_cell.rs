@@ -13,6 +13,7 @@ impl<T> OnceCell<T> {
         Self { v: None }
     }
 
+    /// Create a new initialized [`OnceCell`], which is already populated with a value.
     pub const fn new(v: T) -> Self {
         Self { v: Some(v) }
     }

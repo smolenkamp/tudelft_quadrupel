@@ -22,24 +22,36 @@ const MOTOR_3_PIN: u8 = 29;
 static MOTORS: Mutex<OnceCell<Motors>> = Mutex::new(OnceCell::uninitialized());
 
 /// This sets the maximum motor value that the motor driver will cap the motor values at
-/// This is set to 400 by default, which is about the point that the drone will hover at.
-/// If you want the drone to actually fly, 800 is a reasonable maximum.
+/// For safety reasons, this is set to 400 by default. You need permission from a TA before changing this!
+///
+/// If you want the drone to actually fly:
+/// - For old drones (carbon fiber), 800 is a reasonable maximum.
+/// - For new drones (aluminium frame), 1000 is a reasonable maximum.
 pub fn set_motor_max(max: u16) {
     let mut guard = MOTORS.lock();
     guard.motor_max = max;
 }
 
+/// This gets the maximum motor value that the motor driver will cap the motor values at. This is 400 by default.
 pub fn get_motor_max() -> u16 {
     let guard = MOTORS.lock();
     guard.motor_max
 }
 
-/// Get the current motor values.
+/// Get the current motor values. This is an array of four values:
+/// - 0: The front motor
+/// - 1: The right motor
+/// - 2: The back motor
+/// - 3: The left motor
 pub fn get_motors() -> [u16; 4] {
     MOTORS.lock().motor_values
 }
 
-/// Set the motor values. This will cap the motor values to the value set by `set_motor_limits`.
+/// Set the motor values. This will cap the motor values to the value set by `set_motor_max`. The motor values are an array of four values:
+/// - 0: The front motor
+/// - 1: The right motor
+/// - 2: The back motor
+/// - 3: The left motor
 pub fn set_motors(val: [u16; 4]) {
     let mut guard = MOTORS.lock();
     guard.motor_values = val.map(|v| v.min(guard.motor_max));

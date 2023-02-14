@@ -171,7 +171,8 @@ fn update() {
     }
 }
 
-/// Returns pressure in 10^-5 bar
+/// Returns pressure in 10^-5 bar.
+/// This function will never block, instead it will return an old value if no new value is available.
 pub fn read_pressure() -> u32 {
     update();
     BAROMETER.lock().most_recent_pressure

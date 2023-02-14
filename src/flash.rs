@@ -197,7 +197,9 @@ fn flash_write_enable() -> Result<(), FlashError> {
     spi_master_tx(&[WREN])
 }
 
-/// Clears all memory locations by setting value to 0xFF.
+/// This function clears the entire flash memory.
+///
+/// @note This takes about 100ms to execute.
 pub fn flash_chip_erase() -> Result<(), FlashError> {
     flash_write_enable()?;
     spi_master_tx(&[CHIP_ERASE])?;
@@ -221,7 +223,7 @@ fn flash_set_wrsr() -> Result<(), FlashError> {
 ///       in the memory location (given address), new data cannot be written to that memory location unless
 ///       flash_chip_erase() function is called.
 ///
-/// @param address any address between 0x000000 to 0x01FFFF where the data should be stored.
+/// @param address any address between 0x000000 to 0x01FFFF (exclusive) where the data should be stored.
 /// @param data one byte data to be stored.
 pub fn flash_write_byte(address: u32, byte: u8) -> Result<(), FlashError> {
     flash_write_enable()?;
@@ -244,7 +246,7 @@ pub fn flash_write_byte(address: u32, byte: u8) -> Result<(), FlashError> {
 ///       in the memory location (given address), new data cannot be written to that memory location unless
 ///       flash_chip_erase() function is called.
 ///
-/// @param address starting address (between 0x000000 to 0x01FFFF) from which the data should be stored.
+/// @param address starting address (between 0x000000 to 0x01FFFF exclusive) from which the data should be stored.
 /// @param byte pointer to uint8_t type array containing data.
 pub fn flash_write_bytes(address: u32, bytes: &[u8]) -> Result<(), FlashError> {
     flash_write_enable()?;

@@ -50,7 +50,8 @@ unsafe fn ADC() {
     adc.last_result = adc.adc.result.read().result().bits() * 7;
 }
 
-/// Voltage in 10^-2 volt
+/// Returns the battery voltage in 10^-2 volt.
+/// This function will never block, instead it will return an old value if no new value is available.
 pub fn read_battery() -> u16 {
     let adc = &mut **ADC_STATE.lock();
 

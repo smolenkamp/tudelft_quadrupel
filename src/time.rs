@@ -31,7 +31,9 @@ impl Instant {
         }
     }
 
-    /// Get the [`Duration`] since a previous instant
+    /// Get the [`Duration`] since a previous instant. This function panics if this instant was *before* the other instant.
+    ///
+    /// Note: `Instant` also implements `Sub`, so you can use the minus operator instead of this function.
     pub fn duration_since(self, other: Self) -> Duration {
         assert!(self.time >= other.time);
         Duration::from_nanos(self.time - other.time)
@@ -44,6 +46,9 @@ impl Instant {
         }
     }
 
+    /// Check if this `Instant` is later than another `Instant`.
+    ///
+    /// Note: `Instant` also implements `Ord`, so you can use the comparison operators instead of this function.
     pub fn is_later_than(self, other: Self) -> bool {
         self.time > other.time
     }
@@ -55,6 +60,26 @@ impl Sub<Self> for Instant {
     /// Get the [`Duration`] since a previous instant (rhs)
     fn sub(self, rhs: Self) -> Self::Output {
         self.duration_since(rhs)
+    }
+}
+
+impl Eq for Instant {}
+
+impl PartialEq<Self> for Instant {
+    fn eq(&self, other: &Self) -> bool {
+        self.time == other.time
+    }
+}
+
+impl PartialOrd<Self> for Instant {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Instant {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.time.cmp(&other.time)
     }
 }
 
@@ -110,6 +135,7 @@ unsafe fn RTC0() {
 
 }
 
+/// Wait for the next interrupt configured by `set_interrupt_frequency`.
 pub fn wait_for_next_tick() {
     while !TIMER_FLAG.load(Ordering::SeqCst) {
         cortex_m::asm::wfi();
@@ -117,6 +143,8 @@ pub fn wait_for_next_tick() {
     TIMER_FLAG.store(false, Ordering::SeqCst);
 }
 
+/// Set this timer to interrupt at the given frequency.
+/// The next interrupt will be after 1/hz seconds.
 pub fn set_tick_frequency(hz: u64) {
     let mut rtc = RTC.lock();
 
