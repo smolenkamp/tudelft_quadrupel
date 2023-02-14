@@ -74,7 +74,7 @@ impl<T> Mutex<T> {
     }
 }
 
-/// A LockGuard is an object that, as long as it is alive, means the corresponding mutex is locked.
+/// A `LockGuard` is an object that, as long as it is alive, means the corresponding mutex is locked.
 /// The mutex is unlocked when this object is automatically dropped or explicitly dropped using `drop`.
 pub struct LockGuard<'a, T> {
     inner: &'a mut T,

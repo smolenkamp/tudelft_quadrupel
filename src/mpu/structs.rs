@@ -6,6 +6,7 @@ use fixed::{types, FixedI32};
 ///
 /// Warning: This struct uses a `FixedI32` with 30 fractional bits. You may want to convert these to a more useful format.
 #[derive(Copy, Clone, Debug)]
+#[allow(missing_docs)]
 pub struct Quaternion {
     pub w: FixedI32<types::extra::U30>,
     pub x: FixedI32<types::extra::U30>,
@@ -34,6 +35,7 @@ impl Quaternion {
 /// The accelerometer values.
 /// They are in the range of [-2G, 2G].
 #[derive(Copy, Clone, Debug)]
+#[allow(missing_docs)]
 pub struct Accel {
     pub x: i16,
     pub y: i16,
@@ -56,6 +58,7 @@ impl Accel {
 /// The gyroscope values.
 /// They are in the range of [-2000 deg/second, 2000 deg/second].
 #[derive(Copy, Clone, Debug)]
+#[allow(missing_docs)]
 pub struct Gyro {
     pub x: i16,
     pub y: i16,

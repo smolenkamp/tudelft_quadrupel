@@ -11,26 +11,29 @@ static INITIALIZED: Mutex<bool> = Mutex::new(false);
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
-/// Initialize the drone board. heap_memory should be pointer to
-/// statically allocated memory. Care should be taken that the mutable reference
-/// given here *really* is the only mutable reference to that area of memory.
-/// That should of course be guaranteed by the fact that the reference is mutable, but
-/// you need unsafe code to create a mutable reference to static memory. Care should be taken
-/// that only one such reference is unsafely created.
+/// Initialize the drone board. This should be run at boot.
 ///
-/// clock_frequency determines the minimum delay / sleep time that can be set up. For example,
-/// if the clock frequency is 100 hertz, sleeping for 1ms is not possible. The smallest sleep
-/// time achievable with a 100 hertz clock is 10ms.
+/// `heap_memory` should be a pointer to statically allocated memory.
+/// Care should be taken that the mutable reference given here *really* is the
+/// only mutable reference to that area of memory. That should of course be guaranteed by
+/// the fact that the reference is mutable, but you need unsafe code to create a mutable
+/// reference to static memory. Care should be taken that only one such reference is unsafely
+/// created. The template code already does this.
+///
+/// when `debug` is on, the initialization process is logged over UART. However, once you have
+/// a protocol in place, logging utf-8 data directly over UART is likely not desired, so you
+/// will likely have to turn off `debug` at that point.
+///
+/// # Panics
+/// This function will panic when called twice. Make sure this is only called once on boot
 pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], debug: bool) {
     // Allow time for PC to start up. The drone board starts running code immediately after upload,
     // but at that time the PC may not be listening on UART etc.
-    assembly_delay(2500000);
+    assembly_delay(2_500_000);
 
     // keep this guard around until the end of the function (so interrupts stay off)
     let mut guard = INITIALIZED.lock();
-    if *guard {
-        panic!("ALREADY INITIALIZED");
-    }
+    assert!(!(*guard), "ALREADY INITIALIZED");
     *guard = true;
 
     // unwrap: will never panic because this function can only be called once (see the guard above)
@@ -52,27 +55,27 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], debug: bool) {
 
     uart::initialize(nrf51_peripherals.UART0, &mut cortex_m_peripherals.NVIC);
     if debug {
-        send_bytes(b"UART driver initialized\n");
+        let _ = send_bytes(b"UART driver initialized\n");
     }
     time::initialize(nrf51_peripherals.RTC0, &mut cortex_m_peripherals.NVIC);
     if debug {
-        send_bytes(b"RTC driver initialized\n");
+        let _ = send_bytes(b"RTC driver initialized\n");
     }
     twi::initialize(nrf51_peripherals.TWI0, gpio.p0_04, gpio.p0_02);
     if debug {
-        send_bytes(b"TWI initialized\n");
+        let _ = send_bytes(b"TWI initialized\n");
     }
     mpu::initialize();
     if debug {
-        send_bytes(b"MPU driver initialized\n");
+        let _ = send_bytes(b"MPU driver initialized\n");
     }
     barometer::initialize();
     if debug {
-        send_bytes(b"Barometer driver initialized\n");
+        let _ = send_bytes(b"Barometer driver initialized\n");
     }
     battery::initialize(nrf51_peripherals.ADC, &mut cortex_m_peripherals.NVIC);
     if debug {
-        send_bytes(b"Battery driver initialized\n");
+        let _ = send_bytes(b"Battery driver initialized\n");
     }
     flash::initialize(
         nrf51_peripherals.SPI1,
@@ -85,7 +88,7 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], debug: bool) {
     )
     .unwrap();
     if debug {
-        send_bytes(b"Flash driver initialized\n");
+        let _ = send_bytes(b"Flash driver initialized\n");
     }
     motor::initialize(
         nrf51_peripherals.TIMER1,
@@ -96,7 +99,7 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], debug: bool) {
         gpio.p0_20,
     );
     if debug {
-        send_bytes(b"MOTOR driver initialized\n");
+        let _ = send_bytes(b"MOTOR driver initialized\n");
     }
 
     // done with initialization sequence

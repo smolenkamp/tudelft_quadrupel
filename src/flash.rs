@@ -2,7 +2,7 @@ use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
 use crate::time::{delay_ms_assembly, delay_us_assembly};
 use nb::block;
-use nrf51_hal::gpio::p0::*;
+use nrf51_hal::gpio::p0::{P0_00, P0_09, P0_11, P0_13, P0_17, P0_18};
 use nrf51_hal::gpio::Level;
 use nrf51_hal::gpio::{Disconnected, Output, PushPull};
 use nrf51_hal::prelude::OutputPin;
@@ -23,9 +23,13 @@ const AAI: u8 = 0xAF;
 
 static FLASH: Mutex<OnceCell<SpiFlash>> = Mutex::new(OnceCell::uninitialized());
 
+/// Errors that may occur while interacting with the flash chip
 #[derive(Debug)]
 pub enum FlashError {
+    /// Writing over spi failed.
     SpiError(nrf51_hal::spi::Error),
+    /// When a buffer is written at a location too close to the end of flash
+    /// this error is raised
     OutOfSpace,
 }
 
@@ -109,7 +113,7 @@ fn spi_master_tx(tx_data: &[u8]) -> Result<(), FlashError> {
 }
 
 /// Transmit data over SPI. Optimized to read bytes from the flash memory.
-fn spi_master_tx_rx_fast_read(tx_data: &[u8; 4], rx_data: &mut [u8]) -> Result<(), FlashError> {
+fn spi_master_tx_rx_fast_read(tx_data: [u8; 4], rx_data: &mut [u8]) -> Result<(), FlashError> {
     assert_ne!(rx_data.len(), 0);
     let mut guard = FLASH.lock();
 
@@ -117,7 +121,7 @@ fn spi_master_tx_rx_fast_read(tx_data: &[u8; 4], rx_data: &mut [u8]) -> Result<(
     guard.pin_cs.set_low()?;
 
     for byte in tx_data {
-        block!(guard.spi.send(*byte))?;
+        block!(guard.spi.send(byte))?;
         let _ = block!(guard.spi.read())?;
     }
 
@@ -133,19 +137,19 @@ fn spi_master_tx_rx_fast_read(tx_data: &[u8; 4], rx_data: &mut [u8]) -> Result<(
 }
 
 /// Transmit data over SPI. Optimized to write bytes to the flash memory.
-fn spi_master_tx_rx_fast_write(tx_data: &[u8; 4], bytes: &[u8]) -> Result<(), FlashError> {
+fn spi_master_tx_rx_fast_write(tx_data: [u8; 4], bytes: &[u8]) -> Result<(), FlashError> {
     assert_ne!(bytes.len(), 0);
 
     let mut bytes_written: u32 = 0;
     let address: u32 =
-        (tx_data[3] as u32) + ((tx_data[2] as u32) << 8) + ((tx_data[1] as u32) << 16);
+        u32::from(tx_data[3]) + (u32::from(tx_data[2]) << 8) + (u32::from(tx_data[1]) << 16);
 
     let mut guard = FLASH.lock();
     // Enable slave
     guard.pin_cs.set_low()?;
 
     for byte in tx_data {
-        block!(guard.spi.send(*byte))?;
+        block!(guard.spi.send(byte))?;
         let _ = block!(guard.spi.read())?;
     }
 
@@ -199,7 +203,10 @@ fn flash_write_enable() -> Result<(), FlashError> {
 
 /// This function clears the entire flash memory.
 ///
-/// @note This takes about 100ms to execute.
+/// Note: This takes about 100ms to execute, and blocks!
+///
+/// # Errors
+/// When the SPI command fails
 pub fn flash_chip_erase() -> Result<(), FlashError> {
     flash_write_enable()?;
     spi_master_tx(&[CHIP_ERASE])?;
@@ -207,7 +214,7 @@ pub fn flash_chip_erase() -> Result<(), FlashError> {
     Ok(())
 }
 
-/// Enable-Write-Status-Register (EWSR). This function must be followed by flash_enable_WSR().
+/// Enable-Write-Status-Register (EWSR). This function must be followed by `flash_enable_WSR`().
 fn flash_enable_wsr() -> Result<(), FlashError> {
     spi_master_tx(&[EWSR])
 }
@@ -219,12 +226,15 @@ fn flash_set_wrsr() -> Result<(), FlashError> {
 
 /// Writes one byte data to specified address.
 ///
-/// @note Make sure that the memory location is cleared before writing data. If data is already present
-///       in the memory location (given address), new data cannot be written to that memory location unless
-///       flash_chip_erase() function is called.
+/// Note: Make sure that the memory location is cleared before writing data. If data is already present
+/// in the memory location (given address), new data cannot be written to that memory location unless
+/// `flash_chip_erase`() function is called.
 ///
-/// @param address any address between 0x000000 to 0x01FFFF (exclusive) where the data should be stored.
-/// @param data one byte data to be stored.
+/// address: starting address (between 0x000000 to 0x01FFFF exclusive) from which the data should be stored
+/// byte: one byte data to be stored at the specified address
+///
+/// # Errors
+/// When the SPI command fails
 pub fn flash_write_byte(address: u32, byte: u8) -> Result<(), FlashError> {
     flash_write_enable()?;
     spi_master_tx(&[
@@ -242,16 +252,19 @@ pub fn flash_write_byte(address: u32, byte: u8) -> Result<(), FlashError> {
 /// Writes multi-byte data into memory starting from specified address. Each memory location (address)
 /// holds one byte of data.
 ///
-/// @note Make sure that the memory location is cleared before writing data. If data is already present
-///       in the memory location (given address), new data cannot be written to that memory location unless
-///       flash_chip_erase() function is called.
+/// Note: Make sure that the memory location is cleared before writing data. If data is already present
+/// in the memory location (given address), new data cannot be written to that memory location unless
+/// `flash_chip_erase`() function is called.
 ///
-/// @param address starting address (between 0x000000 to 0x01FFFF exclusive) from which the data should be stored.
-/// @param byte pointer to uint8_t type array containing data.
+/// address: starting address (between 0x000000 to 0x01FFFF exclusive) from which the data should be stored
+/// bytes: byte slice to write at the specified address
+///
+/// # Errors
+/// When the SPI command fails, or the address is not within the flash address range
 pub fn flash_write_bytes(address: u32, bytes: &[u8]) -> Result<(), FlashError> {
     flash_write_enable()?;
     spi_master_tx_rx_fast_write(
-        &[
+        [
             AAI,
             address.to_ne_bytes()[2],
             address.to_ne_bytes()[1],
@@ -264,13 +277,14 @@ pub fn flash_write_bytes(address: u32, bytes: &[u8]) -> Result<(), FlashError> {
 
 /// Reads one byte data from specified address.
 ///
-/// @param address any address between 0x000000 to 0x01FFFF from where the data should be read.
-///                The address is incremented automatically and once the data is written to last accessible
-///                address - 0x01FFFF, the function returns immediately with failure if there is pending data to write.
+/// address: any address between 0x000000 to 0x01FFFF from where the data should be read.
+///
+/// # Errors
+/// When the SPI command fails
 pub fn flash_read_byte(address: u32) -> Result<u8, FlashError> {
     let mut rx_data = [0];
     spi_master_tx_rx_fast_read(
-        &[
+        [
             BYTEREAD,
             address.to_ne_bytes()[2],
             address.to_ne_bytes()[1],
@@ -283,13 +297,14 @@ pub fn flash_read_byte(address: u32) -> Result<u8, FlashError> {
 
 ///Reads multi-byte data starting from specified address.
 ///
-///@param address starting address (between 0x000000 to 0x01FFFF) from which the data is read.
-///               The address is incremented automatically and once the data from address 0x01FFFF
-///               is read, the next location will be 0x000000.
-///@param buffer pointer to uint8_t type array where data is stored.
+/// address: starting address (between 0x000000 to 0x01FFFF exclusive) from which the data should be stored
+/// buffer: a slice to be filled with data read from the specified location
+/// # Errors
+/// When the SPI command fails
+///
 pub fn flash_read_bytes(address: u32, buffer: &mut [u8]) -> Result<(), FlashError> {
     spi_master_tx_rx_fast_read(
-        &[
+        [
             BYTEREAD,
             address.to_ne_bytes()[2],
             address.to_ne_bytes()[1],

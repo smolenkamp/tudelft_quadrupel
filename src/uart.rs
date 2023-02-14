@@ -45,11 +45,11 @@ pub(crate) fn initialize(uart: nrf51_pac::UART0, nvic: &mut NVIC) {
     unsafe { NVIC::unmask(nrf51_pac::Interrupt::UART0) };
 
     UART.lock().initialize(UartDriver {
-        rx_buffer: Default::default(),
-        tx_buffer: Default::default(),
+        rx_buffer: ConstGenericRingBuffer::default(),
+        tx_buffer: ConstGenericRingBuffer::default(),
         tx_data_available: true,
         uart,
-    })
+    });
 }
 
 /// Checks if the UART is initialized
@@ -63,7 +63,7 @@ pub fn is_initialized() -> bool {
 /// again
 #[doc(hidden)]
 pub unsafe fn uninitialize() {
-    UART.lock().uninitialize()
+    UART.lock().uninitialize();
 }
 
 /// Reads as many bytes as possible from the UART

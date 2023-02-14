@@ -6,13 +6,25 @@ use nrf51_hal::gpio::{Disconnected, Level, Output, PushPull};
 use nrf51_hal::prelude::{OutputPin, StatefulOutputPin};
 use void::ResultVoidExt;
 
-/// There are four leds on control board, these can be accessed using this enum.
-/// For example, to toggle the red led use `Led::Red.toggle()`.
+pub use Led::{Blue, Green, Red, Yellow};
+
+/// There are four leds on the control board, these can be accessed using this enum.
+///
+/// For example, to toggle the red led use
+/// ```no_run
+/// use tudelft_quadrupel::led::Red;
+///
+/// Red.toggle();
+/// ```
 #[derive(Copy, Clone)]
 pub enum Led {
+    /// This controls the red led
     Red,
+    /// This controls the red yellow
     Yellow,
+    /// This controls the red green
     Green,
+    /// This controls the red blue
     Blue,
 }
 
@@ -29,10 +41,10 @@ impl Led {
         // ignore the error here. Its type is `Void` and is impossible
         // to construct (and thus impossible to actually happen)
         let _ = match self {
-            Led::Red => leds.led_red.set_high(),
-            Led::Yellow => leds.led_yellow.set_high(),
-            Led::Green => leds.led_green.set_high(),
-            Led::Blue => leds.led_blue.set_high(),
+            Red => leds.led_red.set_high(),
+            Yellow => leds.led_yellow.set_high(),
+            Green => leds.led_green.set_high(),
+            Blue => leds.led_blue.set_high(),
         };
     }
 
@@ -48,10 +60,10 @@ impl Led {
         // ignore the error here. Its type is `Void` and is impossible
         // to construct (and thus impossible to actually happen)
         let _ = match self {
-            Led::Red => leds.led_red.set_low(),
-            Led::Yellow => leds.led_yellow.set_low(),
-            Led::Green => leds.led_green.set_low(),
-            Led::Blue => leds.led_blue.set_low(),
+            Red => leds.led_red.set_low(),
+            Yellow => leds.led_yellow.set_low(),
+            Green => leds.led_green.set_low(),
+            Blue => leds.led_blue.set_low(),
         };
     }
 
@@ -65,10 +77,10 @@ impl Led {
         let leds = unsafe { LEDS.no_critical_section_lock() };
 
         let res = match self {
-            Led::Red => leds.led_red.is_set_high(),
-            Led::Yellow => leds.led_yellow.is_set_high(),
-            Led::Green => leds.led_green.is_set_high(),
-            Led::Blue => leds.led_blue.is_set_high(),
+            Red => leds.led_red.is_set_high(),
+            Yellow => leds.led_yellow.is_set_high(),
+            Green => leds.led_green.is_set_high(),
+            Blue => leds.led_blue.is_set_high(),
         };
 
         res.void_unwrap()
@@ -77,19 +89,21 @@ impl Led {
     /// Sets the state of a led. true = on, false = off
     pub fn set(self, value: bool) {
         if value {
-            self.on()
+            self.on();
         } else {
-            self.off()
+            self.off();
         }
     }
 
     /// Checks whether a led is on or not. Returns true if the led was on.
+    #[must_use]
     pub fn is_on(self) -> bool {
         !self.is_off()
     }
 
     /// Toggle this led. If it was on, it now turns off. If it was off, it now turns on.
     /// Returns the state of the led after toggling true = on, false = off.
+    #[must_use]
     pub fn toggle(self) -> bool {
         // create a critical section here, so an interrupt cannot occur
         // between is_enabled and the actual enable call. This immediately
@@ -127,5 +141,5 @@ pub(crate) fn initialize(
         led_yellow: led_yellow.into_push_pull_output(Level::High),
         led_green: led_green.into_push_pull_output(Level::High),
         led_blue: led_blue.into_push_pull_output(Level::High),
-    })
+    });
 }

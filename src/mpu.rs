@@ -18,6 +18,7 @@ mod firmware_loader;
 mod registers;
 #[allow(unused)]
 mod sensor;
+/// structs to deal with mpu output, like quaternions
 pub mod structs;
 
 const SAMPLE_RATE_DIVIDER_MPU: u8 = 0;
@@ -44,7 +45,7 @@ pub(crate) fn initialize() {
     MPU.lock().initialize(Mpu {
         mpu,
         dmp_enabled: true,
-    })
+    });
 }
 
 /// Is the DMP (digital motion processor) of the MPU enabled?
@@ -54,6 +55,9 @@ pub fn is_dmp_enabled() -> bool {
 }
 
 /// Disable the DMP (digital motion processor) of the MPU
+///
+/// # Panics
+/// when the global constant `SAMPLE_RATE_DIVIDER` is wrong (ie. will not panic)
 pub fn disable_dmp() {
     let twi: &mut Twi<_> = &mut TWI.lock();
     let mpu: &mut Mpu = &mut MPU.lock();
@@ -63,10 +67,13 @@ pub fn disable_dmp() {
         .unwrap();
     mpu.mpu.disable_dmp(twi).unwrap();
     mpu.mpu.disable_fifo(twi).unwrap();
-    mpu.dmp_enabled = false
+    mpu.dmp_enabled = false;
 }
 
 /// Enable the DMP (digital motion processor) of the MPU
+///
+/// # Errors
+/// when the global constant `SAMPLE_RATE_DIVIDER` is wrong (ie. will not error)
 pub fn enable_dmp() -> Result<(), Error<Twi<TWI0>>> {
     let twi: &mut Twi<_> = &mut TWI.lock();
     let mpu: &mut Mpu = &mut MPU.lock();
@@ -83,6 +90,12 @@ pub fn enable_dmp() -> Result<(), Error<Twi<TWI0>>> {
 /// This reads the most recent angle from the DMP, if there are any new ones available.
 /// If there is no new angle available, it returns `WouldBlock`.
 /// Do not call this function if the DMP is disabled.
+///
+/// # Panics
+/// when the dmp is disabled
+///
+/// # Errors
+/// when a TWI operation failed
 pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<Twi<TWI0>>> {
     let twi: &mut Twi<_> = &mut TWI.lock();
     let mpu: &mut Mpu = &mut MPU.lock();
@@ -98,7 +111,7 @@ pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<Twi<TWI0>>> {
     // Keep reading while there are more full packets
     let mut buf = [0; 28];
     while len >= 28 {
-        mpu.mpu.read_fifo(twi, &mut buf)?;
+        let _ = mpu.mpu.read_fifo(twi, &mut buf)?;
         len -= 28;
     }
 
@@ -108,6 +121,9 @@ pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<Twi<TWI0>>> {
 
 /// This reads the most recent acceleration and gyroscope information from the MPU.
 /// This function can be called both if the DMP is enabled or disabled.
+///
+/// # Errors
+/// when a TWI operation failed
 pub fn read_raw() -> Result<(Accel, Gyro), Error<Twi<TWI0>>> {
     let twi: &mut Twi<_> = &mut TWI.lock();
     let mpu: &mut Mpu = &mut MPU.lock();

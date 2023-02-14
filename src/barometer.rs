@@ -1,12 +1,12 @@
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
+use crate::time::Instant;
 use crate::twi::TWI;
 use core::time::Duration;
 use embedded_hal::prelude::_embedded_hal_blocking_i2c_WriteRead;
 use nrf51_hal::Twi;
-use crate::time::Instant;
 
-const MS5611_ADDR: u8 = 0b01110111;
+const MS5611_ADDR: u8 = 0b0111_0111;
 const REG_READ: u8 = 0x0;
 const REG_D1: u8 = 0x40;
 const REG_D2: u8 = 0x50;
@@ -95,7 +95,7 @@ pub(crate) fn initialize() {
         over_sampling_ratio: OverSamplingRatio::Opt4096,
         loop_state: Ms5611LoopState::Reset,
         most_recent_pressure: 0,
-    })
+    });
 }
 
 fn update() {
@@ -152,16 +152,16 @@ fn update() {
             let mut buf = [0u8; 4];
             twi.write_read(MS5611_ADDR, &[REG_READ], &mut buf[1..4])
                 .unwrap();
-            let d1 = d1 as u64;
-            let d2 = u32::from_be_bytes(buf) as u64;
+            let d1 = u64::from(d1);
+            let d2 = u64::from(u32::from_be_bytes(buf));
 
             //Use D1 and D2 to find the new pressure and temperature
             //Calculated using the ms5611 reference manual
-            let dt = d2 - ((baro.temp_ref as u64) << 8);
-            let offset: u64 = ((baro.pressure_offset as u64) << 16)
-                + ((dt * (baro.temp_coef_pressure_offset as u64)) >> 7);
-            let sens: u64 = ((baro.pressure_sensitivity as u64) << 15)
-                + ((dt * (baro.temp_coef_pressure_sensitivity as u64)) >> 8);
+            let dt = d2 - (u64::from(baro.temp_ref) << 8);
+            let offset: u64 = (u64::from(baro.pressure_offset) << 16)
+                + ((dt * u64::from(baro.temp_coef_pressure_offset)) >> 7);
+            let sens: u64 = (u64::from(baro.pressure_sensitivity) << 15)
+                + ((dt * u64::from(baro.temp_coef_pressure_sensitivity)) >> 8);
             baro.most_recent_pressure = ((((d1 * sens) >> 21) - offset) >> 15) as u32;
 
             //Then set loop state for next iteration, and we can do the next iteration immediately

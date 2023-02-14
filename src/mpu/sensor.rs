@@ -11,7 +11,7 @@ use embedded_hal::blocking::i2c::{Write, WriteRead};
 
 const MPU6050_ADDRESS: u8 = 0x68;
 
-/// InvenSense MPU-6050 Driver
+/// `InvenSense` MPU-6050 Driver
 pub struct Mpu6050<I2c>
 where
     I2c: Write + WriteRead,
@@ -253,13 +253,13 @@ where
 
     pub fn accel(&mut self, i2c: &mut I2c) -> Result<Accel, Error<I2c>> {
         let mut data = [0; 6];
-        self.read_registers(i2c, Register::AccelX_H, &mut data)?;
+        let _ = self.read_registers(i2c, Register::AccelX_H, &mut data)?;
         Ok(Accel::from_bytes(data))
     }
 
     pub fn gyro(&mut self, i2c: &mut I2c) -> Result<Gyro, Error<I2c>> {
         let mut data = [0; 6];
-        self.read_registers(i2c, Register::GyroX_H, &mut data)?;
+        let _ = self.read_registers(i2c, Register::GyroX_H, &mut data)?;
         Ok(Gyro::from_bytes(data))
     }
 }

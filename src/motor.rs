@@ -57,6 +57,7 @@ pub fn set_motors(val: [u16; 4]) {
     guard.motor_values = val.map(|v| v.min(guard.motor_max));
 }
 
+#[allow(clippy::too_many_lines)]
 pub(crate) fn initialize(
     timer1: nrf51_pac::TIMER1,
     timer2: nrf51_pac::TIMER2,
@@ -254,8 +255,8 @@ unsafe fn TIMER2() {
 
         if motors.timer2.cc[2].read().bits() < 500 {
             // Safety: Any time is allowed
-            motors.timer2.cc[0].write(|w| w.bits((1000 + motors.motor_values[2]) as u32));
-            motors.timer2.cc[1].write(|w| w.bits((1000 + motors.motor_values[3]) as u32));
+            motors.timer2.cc[0].write(|w| w.bits(u32::from(1000 + motors.motor_values[2])));
+            motors.timer2.cc[1].write(|w| w.bits(u32::from(1000 + motors.motor_values[3])));
         }
     }
 }
@@ -271,8 +272,8 @@ unsafe fn TIMER1() {
         if motors.timer1.cc[2].read().bits() < 500 {
             motors.pin20.set_high().unwrap();
             // Safety: Any time is allowed
-            motors.timer1.cc[0].write(|w| w.bits((1000 + motors.motor_values[0]) as u32));
-            motors.timer1.cc[1].write(|w| w.bits((1000 + motors.motor_values[1]) as u32));
+            motors.timer1.cc[0].write(|w| w.bits(u32::from(1000 + motors.motor_values[0])));
+            motors.timer1.cc[1].write(|w| w.bits(u32::from(1000 + motors.motor_values[1])));
             motors.pin20.set_low().unwrap();
         }
     }
