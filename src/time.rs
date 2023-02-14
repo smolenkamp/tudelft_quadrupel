@@ -1,7 +1,7 @@
 use alloc::format;
 use core::arch::asm;
 use core::ops::Sub;
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use core::time::Duration;
 use nrf51_pac::interrupt;
 
@@ -111,24 +111,31 @@ pub(crate) fn initialize(clock_instance: RTC0, nvic: &mut NVIC) {
 
 // get the current global time in nanoseconds. The precision is not necessarily in single nanoseconds
 fn get_time_ns() -> u64 {
-    let global_time = GLOBAL_TIME.lock();
-    let counter = RTC.lock().get_counter();
-    send_bytes(format!("global: {} ctr: {}\n", *global_time, counter).as_bytes());
+    cortex_m::interrupt::free(|_| {
+        let global_time = GLOBAL_TIME.lock();
+        let counter = RTC.lock().get_counter();
 
-    (*global_time + counter as u64) * PERIOD
+        let time = (*global_time + counter as u64) * PERIOD;
+
+        send_bytes(format!("global: {} ctr: {}\n", *global_time, counter).as_bytes());
+
+        time
+    })
 }
 
 #[interrupt]
 unsafe fn RTC0() {
     // SAFETY: we're in an interrupt so this code cannot be run concurrently anyway
-    let rtc = RTC.no_critical_section_lock();
+    let mut rtc = RTC.lock();
     // SAFETY: we're in an interrupt so this code cannot be run concurrently anyway
-    let global_time = GLOBAL_TIME.no_critical_section_lock();
+    let mut global_time = GLOBAL_TIME.lock();
 
     if rtc.is_event_triggered(RtcInterrupt::Compare0) {
         *global_time += rtc.get_counter() as u64;
 
         rtc.clear_counter();
+        while rtc.get_counter() != 0 {}
+
         rtc.reset_event(RtcInterrupt::Compare0);
         TIMER_FLAG.store(true, Ordering::SeqCst);
     }
