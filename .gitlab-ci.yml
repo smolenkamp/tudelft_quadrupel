@@ -13,6 +13,8 @@ cache:
 before_script:
   - apt-get update -yqq
   - apt-get install -yqq --no-install-recommends build-essential
+  - rustup target add thumbv6m-none-eabi
+  - rustup component add std
 
 # Use cargo to test the project
 check:
