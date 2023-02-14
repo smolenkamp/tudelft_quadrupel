@@ -1,6 +1,6 @@
 [package]
 name = "tudelft-quadrupel"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 authors = [
     "Jonathan Dönszelmann <jonabent@gmail.com>",
