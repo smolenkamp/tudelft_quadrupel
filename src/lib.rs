@@ -54,7 +54,9 @@ pub mod flash;
 /// Initialize all the drivers
 pub mod initialize;
 
-/// Utilities to control the leds on the board. Note that in the template,
+/// Utilities to control the leds on the board. 
+/// 
+/// Note that in the template,
 /// some leds have already been assigned meaning:
 ///
 /// * red blinking: you probably have a panic

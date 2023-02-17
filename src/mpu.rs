@@ -21,8 +21,10 @@ mod sensor;
 /// structs to deal with mpu output, like quaternions
 pub mod structs;
 
-const SAMPLE_RATE_DIVIDER_MPU: u8 = 0;
-const SAMPLE_RATE_DIVIDER_RAW: u8 = 0;
+/// MPU Sample Rate Divider under DMP mode
+pub const SAMPLE_RATE_DIVIDER_MPU: u8 = 0;
+/// MPU Sample Rate Divider under RAW mode
+pub const SAMPLE_RATE_DIVIDER_RAW: u8 = 0;
 
 struct Mpu {
     mpu: Mpu6050<Twi<TWI0>>,
@@ -57,7 +59,7 @@ pub fn is_dmp_enabled() -> bool {
 /// Disable the DMP (digital motion processor) of the MPU
 ///
 /// # Panics
-/// when the global constant `SAMPLE_RATE_DIVIDER` is wrong (ie. will not panic)
+/// when the global constant `SAMPLE_RATE_DIVIDER_RAW` is wrong (i.e. won't panic under normal conditions)
 pub fn disable_dmp() {
     let twi: &mut Twi<_> = &mut TWI.lock();
     let mpu: &mut Mpu = &mut MPU.lock();
@@ -73,7 +75,7 @@ pub fn disable_dmp() {
 /// Enable the DMP (digital motion processor) of the MPU
 ///
 /// # Errors
-/// when the global constant `SAMPLE_RATE_DIVIDER` is wrong (ie. will not error)
+/// when the global constant `SAMPLE_RATE_DIVIDER_MPU` is wrong (i.e. will not panic under normal conditions)
 pub fn enable_dmp() -> Result<(), Error<Twi<TWI0>>> {
     let twi: &mut Twi<_> = &mut TWI.lock();
     let mpu: &mut Mpu = &mut MPU.lock();
@@ -92,10 +94,10 @@ pub fn enable_dmp() -> Result<(), Error<Twi<TWI0>>> {
 /// Do not call this function if the DMP is disabled.
 ///
 /// # Panics
-/// when the dmp is disabled
+/// When the dmp is disabled.
 ///
 /// # Errors
-/// when a TWI operation failed
+/// when a TWI(I2C) operation failed
 pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<Twi<TWI0>>> {
     let twi: &mut Twi<_> = &mut TWI.lock();
     let mpu: &mut Mpu = &mut MPU.lock();
