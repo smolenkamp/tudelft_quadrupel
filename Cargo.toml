@@ -3,13 +3,17 @@ name = "tudelft-quadrupel"
 version = "1.0.1"
 edition = "2021"
 authors = [
+    "Anne Stijns <anstijns@gmail.com>",
+    "Jonathan Brouwer <jonathantbrouwer@gmail.com>",
     "Jonathan Dönszelmann <jonabent@gmail.com>",
     "Victor Roest <victor@xirion.net>",
-    "Jonathan Brouwer <jonathantbrouwer@gmail.com>",
-    "Anne Stijns <anstijns@gmail.com>"
 ]
 license = "MIT"
 description = "Hardware support library for the quadrupel drone project (embedded systems lab)."
+repository = "https://gitlab.ewi.tudelft.nl/cese/embedded-systems-lab/tudelft-quadrupel"
+categories = ["Embedded development"]
+keywords = ["tudelft"]
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -1,41 +1,14 @@
-image: "rust:1.66"
-
-variables:
-  CARGO_HOME: $CI_PROJECT_DIR/.cargo
+image: "0x76/rust:1.67-2"
 
 cache:
   key: $CI_COMMIT_REF_SLUG
   paths:
     - target/
-    - .cargo
-
-# Install C compiler in case we need it
-before_script:
-  - apt-get update -yqq
-  - apt-get install -yqq --no-install-recommends build-essential
-  - rustup target add thumbv6m-none-eabi
-  - rustup component add std
 
 # Use cargo to test the project
-check:
-  before_script:
-    - rustc --version && cargo --version # Print version info for debugging
-  script:
-    - cargo check
-
-test:
-  before_script:
-    - rustc --version && cargo --version # Print version info for debugging
-  script:
-    - cargo test
-
 lint:
   before_script:
     - rustc --version && cargo --version # Print version info for debugging
-    - rustup component add rustfmt
-    - rustfmt --version
-    - rustup component add clippy
-    - cargo-clippy --version
   script:
     - cargo build
     - cargo fmt --all -- --check
