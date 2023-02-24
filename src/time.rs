@@ -106,7 +106,7 @@ const PERIOD: u64 = 30517;
 const COUNTER_MAX: u32 = 1 << 24;
 
 /// is set to true when the timer interrupt has gone off.
-/// Used to wait on the timer interrupt in [`wait_for_interrupt`]
+/// Used to wait on the timer interrupt in [`wait_for_next_tick`]
 static TIMER_FLAG: AtomicBool = AtomicBool::new(false);
 
 /// Global time in magic timer units ([`PERIOD`]) since timers started
@@ -120,25 +120,25 @@ static PREV_COUNTER: AtomicU32 = AtomicU32::new(0);
 static COUNTER_PERIOD: AtomicU32 = AtomicU32::new(0);
 
 pub(crate) fn initialize(clock_instance: RTC0, nvic: &mut NVIC) {
-    let mut rtc = RTC.lock();
-
-    rtc.initialize(Rtc::new(clock_instance, PRESCALER).unwrap());
-    rtc.enable_event(RtcInterrupt::Compare0);
-    rtc.enable_interrupt(RtcInterrupt::Compare0, Some(nvic));
-    rtc.enable_counter();
+    RTC.modify(|rtc| {
+        rtc.initialize(Rtc::new(clock_instance, PRESCALER).unwrap());
+        rtc.enable_event(RtcInterrupt::Compare0);
+        rtc.enable_interrupt(RtcInterrupt::Compare0, Some(nvic));
+        rtc.enable_counter();
+    });
 }
 
 // get the current global time in nanoseconds. The precision is not necessarily in single nanoseconds
 fn get_time_ns() -> u64 {
-    // the number of periods of the clock that passed in total
-    let global_time = GLOBAL_TIME.lock();
-    // the current state of the clock
-    let counter = RTC.lock().get_counter();
-    // the previous state of the clock, when the global_time was last updated
-    let prev_counter = PREV_COUNTER.load(Ordering::SeqCst);
+    GLOBAL_TIME.modify(|global_time| {
+        let counter = RTC.modify(|counter| counter.get_counter());
 
-    // take the global time, and add to that how much time has passed since the last interrupt
-    (*global_time + u64::from(counter_diff(prev_counter, counter))) * PERIOD
+        // the previous state of the clock, when the global_time was last updated
+        let prev_counter = PREV_COUNTER.load(Ordering::SeqCst);
+
+        // take the global time, and add to that how much time has passed since the last interrupt
+        (*global_time + u64::from(counter_diff(prev_counter, counter))) * PERIOD
+    })
 }
 
 /// neatly calculates a difference in clockcycles between two rtc counter values
@@ -156,9 +156,9 @@ fn counter_diff(prev: u32, curr: u32) -> u32 {
 #[interrupt]
 unsafe fn RTC0() {
     // SAFETY: we're in an interrupt so this code cannot be run concurrently anyway
-    let rtc = RTC.no_critical_section_lock();
+    let rtc = RTC.no_critical_section_lock_mut();
     // SAFETY: we're in an interrupt so this code cannot be run concurrently anyway
-    let global_time = GLOBAL_TIME.no_critical_section_lock();
+    let global_time = GLOBAL_TIME.no_critical_section_lock_mut();
 
     if rtc.is_event_triggered(RtcInterrupt::Compare0) {
         let counter = rtc.get_counter();
@@ -192,18 +192,21 @@ pub fn wait_for_next_tick() {
 ///
 #[allow(clippy::missing_panics_doc)]
 pub fn set_tick_frequency(hz: u64) {
-    let mut rtc = RTC.lock();
+    RTC.modify(|rtc| {
+        let counter_setting = (1_000_000_000 / hz) / PERIOD;
+        // this can't actually happen, since it'd need hz < 1
+        debug_assert!(counter_setting < (1 << 24), "counter period should be less than 1<<24 (roughly 6 minutes with the default PRESCALER settings)");
 
-    let counter_setting = (1_000_000_000 / hz) / PERIOD;
-    // this can't actually happen, since it'd need hz < 1
-    debug_assert!(counter_setting < (1 << 24), "counter period should be less than 1<<24 (roughly 6 minutes with the default PRESCALER settings)");
+        COUNTER_PERIOD.store(counter_setting as u32, Ordering::SeqCst);
 
-    COUNTER_PERIOD.store(counter_setting as u32, Ordering::SeqCst);
+        rtc.set_compare(RtcCompareReg::Compare0, counter_setting as u32)
+            .unwrap();
+        rtc.clear_counter();
+        PREV_COUNTER.store(0, Ordering::SeqCst);
+    });
 
-    rtc.set_compare(RtcCompareReg::Compare0, counter_setting as u32)
-        .unwrap();
-    rtc.clear_counter();
-    PREV_COUNTER.store(0, Ordering::SeqCst);
+    // Give the counter time to clear (Section 19.1.8 of the NRF51 reference manual V3)
+    delay_us_assembly(100);
 }
 
 /// Delay the program for a time using assembly instructions.

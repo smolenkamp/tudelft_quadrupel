@@ -31,9 +31,11 @@ pub(crate) fn initialize(adc: nrf51_pac::ADC, nvic: &mut NVIC) {
         nvic.set_priority(Interrupt::ADC, 3);
     }
 
-    ADC_STATE.lock().initialize(Adc {
-        adc,
-        last_result: 0,
+    ADC_STATE.modify(|a| {
+        a.initialize(Adc {
+            adc,
+            last_result: 0,
+        })
     });
 
     // Safety: The initialize function is not called inside of an interrupt-free section.
@@ -44,21 +46,22 @@ pub(crate) fn initialize(adc: nrf51_pac::ADC, nvic: &mut NVIC) {
 
 #[interrupt]
 unsafe fn ADC() {
-    let adc = &mut **ADC_STATE.lock();
-    adc.adc.events_end.reset();
-    // Battery voltage = (result*1.2*3/255*2) = RESULT*0.007058824
-    adc.last_result = adc.adc.result.read().result().bits() * 7;
+    ADC_STATE.modify(|adc| {
+        adc.adc.events_end.reset();
+        // Battery voltage = (result*1.2*3/255*2) = RESULT*0.007058824
+        adc.last_result = adc.adc.result.read().result().bits() * 7;
+    })
 }
 
 /// Returns the battery voltage in 10^-2 volt.
 /// This function will never block, instead it will return an old value if no new value is available.
 pub fn read_battery() -> u16 {
-    let adc = &mut **ADC_STATE.lock();
+    ADC_STATE.modify(|adc| {
+        if !adc.adc.busy.read().busy().bit() {
+            //For some reason, there is no field inside this register, so we set it to 1 manually.
+            adc.adc.tasks_start.write(|w| unsafe { w.bits(1) });
+        }
 
-    if !adc.adc.busy.read().busy().bit() {
-        //For some reason, there is no field inside this register, so we set it to 1 manually.
-        adc.adc.tasks_start.write(|w| unsafe { w.bits(1) });
-    }
-
-    adc.last_result
+        adc.last_result
+    })
 }

@@ -34,26 +34,28 @@ struct Mpu {
 static MPU: Mutex<OnceCell<Mpu>> = Mutex::new(OnceCell::uninitialized());
 
 pub(crate) fn initialize() {
-    let twi: &mut Twi<_> = &mut TWI.lock();
+    TWI.modify(|twi| {
+        let mut mpu: Mpu6050<Twi<TWI0>> = Mpu6050::new(&mut **twi).unwrap();
 
-    let mut mpu = Mpu6050::new(twi).unwrap();
+        mpu.initialize_dmp(twi).unwrap();
 
-    mpu.initialize_dmp(twi).unwrap();
-
-    mpu.set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_MPU)
-        .unwrap();
-    mpu.set_digital_lowpass_filter(twi, DigitalLowPassFilter::Filter5)
-        .unwrap();
-    MPU.lock().initialize(Mpu {
-        mpu,
-        dmp_enabled: true,
+        mpu.set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_MPU)
+            .unwrap();
+        mpu.set_digital_lowpass_filter(twi, DigitalLowPassFilter::Filter5)
+            .unwrap();
+        MPU.modify(|m| {
+            m.initialize(Mpu {
+                mpu,
+                dmp_enabled: true,
+            })
+        });
     });
 }
 
 /// Is the DMP (digital motion processor) of the MPU enabled?
 /// It is enabled by default.
 pub fn is_dmp_enabled() -> bool {
-    MPU.lock().dmp_enabled
+    MPU.modify(|mpu| mpu.dmp_enabled)
 }
 
 /// Disable the DMP (digital motion processor) of the MPU
@@ -61,8 +63,9 @@ pub fn is_dmp_enabled() -> bool {
 /// # Panics
 /// when the global constant `SAMPLE_RATE_DIVIDER_RAW` is wrong (i.e. won't panic under normal conditions)
 pub fn disable_dmp() {
-    let twi: &mut Twi<_> = &mut TWI.lock();
-    let mpu: &mut Mpu = &mut MPU.lock();
+    // Safety: The TWI and MPU mutexes are not accessed in an interrupt
+    let twi = unsafe { TWI.no_critical_section_lock_mut() };
+    let mpu = unsafe { MPU.no_critical_section_lock_mut() };
 
     mpu.mpu
         .set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_RAW)
@@ -77,8 +80,9 @@ pub fn disable_dmp() {
 /// # Errors
 /// when the global constant `SAMPLE_RATE_DIVIDER_MPU` is wrong (i.e. will not panic under normal conditions)
 pub fn enable_dmp() -> Result<(), Error<Twi<TWI0>>> {
-    let twi: &mut Twi<_> = &mut TWI.lock();
-    let mpu: &mut Mpu = &mut MPU.lock();
+    // Safety: The TWI and MPU mutexes are not accessed in an interrupt
+    let twi = unsafe { TWI.no_critical_section_lock_mut() };
+    let mpu = unsafe { MPU.no_critical_section_lock_mut() };
 
     mpu.mpu
         .set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_MPU)?;
@@ -99,8 +103,9 @@ pub fn enable_dmp() -> Result<(), Error<Twi<TWI0>>> {
 /// # Errors
 /// when a TWI(I2C) operation failed
 pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<Twi<TWI0>>> {
-    let twi: &mut Twi<_> = &mut TWI.lock();
-    let mpu: &mut Mpu = &mut MPU.lock();
+    // Safety: The TWI and MPU mutexes are not accessed in an interrupt
+    let twi = unsafe { TWI.no_critical_section_lock_mut() };
+    let mpu = unsafe { MPU.no_critical_section_lock_mut() };
 
     assert!(mpu.dmp_enabled);
 
@@ -127,8 +132,9 @@ pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<Twi<TWI0>>> {
 /// # Errors
 /// when a TWI operation failed
 pub fn read_raw() -> Result<(Accel, Gyro), Error<Twi<TWI0>>> {
-    let twi: &mut Twi<_> = &mut TWI.lock();
-    let mpu: &mut Mpu = &mut MPU.lock();
+    // Safety: The TWI and MPU mutexes are not accessed in an interrupt
+    let twi = unsafe { TWI.no_critical_section_lock_mut() };
+    let mpu = unsafe { MPU.no_critical_section_lock_mut() };
 
     let accel = mpu.mpu.accel(twi)?;
     let gyro = mpu.mpu.gyro(twi)?;

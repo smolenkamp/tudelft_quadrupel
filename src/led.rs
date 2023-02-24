@@ -36,7 +36,7 @@ impl Led {
         // inline comments from the `nrf_51` crate on `set_high`.
         //
         // NOTE: single writes on ARM are always atomic so this makes sense.
-        let leds = unsafe { LEDS.no_critical_section_lock() };
+        let leds = unsafe { LEDS.no_critical_section_lock_mut() };
 
         // ignore the error here. Its type is `Void` and is impossible
         // to construct (and thus impossible to actually happen)
@@ -55,7 +55,7 @@ impl Led {
         // inline comments from the `nrf_51` crate on `set_low`.
         //
         // NOTE: single writes on ARM are always atomic so this makes sense.
-        let leds = unsafe { LEDS.no_critical_section_lock() };
+        let leds = unsafe { LEDS.no_critical_section_lock_mut() };
 
         // ignore the error here. Its type is `Void` and is impossible
         // to construct (and thus impossible to actually happen)
@@ -74,7 +74,7 @@ impl Led {
         // inline comments from the `nrf_51` crate on `is_set_high`.
         //
         // NOTE: single writes on ARM are always atomic so this makes sense.
-        let leds = unsafe { LEDS.no_critical_section_lock() };
+        let leds = unsafe { LEDS.no_critical_section_lock_mut() };
 
         let res = match self {
             Red => leds.led_red.is_set_high(),
@@ -135,10 +135,12 @@ pub(crate) fn initialize(
     led_green: P0_28<Disconnected>,
     led_blue: P0_30<Disconnected>,
 ) {
-    LEDS.lock().initialize(Leds {
-        led_red: led_red.into_push_pull_output(Level::High),
-        led_yellow: led_yellow.into_push_pull_output(Level::High),
-        led_green: led_green.into_push_pull_output(Level::High),
-        led_blue: led_blue.into_push_pull_output(Level::High),
+    LEDS.modify(|leds| {
+        leds.initialize(Leds {
+            led_red: led_red.into_push_pull_output(Level::High),
+            led_yellow: led_yellow.into_push_pull_output(Level::High),
+            led_green: led_green.into_push_pull_output(Level::High),
+            led_blue: led_blue.into_push_pull_output(Level::High),
+        })
     });
 }

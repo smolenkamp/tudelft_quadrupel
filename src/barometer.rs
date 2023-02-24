@@ -4,7 +4,6 @@ use crate::time::Instant;
 use crate::twi::TWI;
 use core::time::Duration;
 use embedded_hal::prelude::_embedded_hal_blocking_i2c_WriteRead;
-use nrf51_hal::Twi;
 
 const MS5611_ADDR: u8 = 0b0111_0111;
 const REG_READ: u8 = 0x0;
@@ -76,31 +75,35 @@ struct Ms5611 {
 static BAROMETER: Mutex<OnceCell<Ms5611>> = Mutex::new(OnceCell::uninitialized());
 
 pub(crate) fn initialize() {
-    let twi: &mut Twi<_> = &mut TWI.lock();
+    TWI.modify(|twi| {
+        let mut prom = [0; 8];
+        let mut data = [0u8; 2];
+        for c in 0..8 {
+            twi.write_read(MS5611_ADDR, &[REG_PROM + 2 * c], &mut data)
+                .unwrap();
+            prom[c as usize] = u16::from_be_bytes(data);
+        }
 
-    let mut prom = [0; 8];
-    let mut data = [0u8; 2];
-    for c in 0..8 {
-        twi.write_read(MS5611_ADDR, &[REG_PROM + 2 * c], &mut data)
-            .unwrap();
-        prom[c as usize] = u16::from_be_bytes(data);
-    }
-
-    BAROMETER.lock().initialize(Ms5611 {
-        pressure_sensitivity: prom[1],
-        pressure_offset: prom[2],
-        temp_coef_pressure_sensitivity: prom[3],
-        temp_coef_pressure_offset: prom[4],
-        temp_ref: prom[5],
-        over_sampling_ratio: OverSamplingRatio::Opt4096,
-        loop_state: Ms5611LoopState::Reset,
-        most_recent_pressure: 0,
+        BAROMETER.modify(|baro| {
+            baro.initialize(Ms5611 {
+                pressure_sensitivity: prom[1],
+                pressure_offset: prom[2],
+                temp_coef_pressure_sensitivity: prom[3],
+                temp_coef_pressure_offset: prom[4],
+                temp_ref: prom[5],
+                over_sampling_ratio: OverSamplingRatio::Opt4096,
+                loop_state: Ms5611LoopState::Reset,
+                most_recent_pressure: 0,
+            })
+        })
     });
 }
 
 fn update() {
-    let baro: &mut Ms5611 = &mut BAROMETER.lock();
-    let twi: &mut Twi<_> = &mut TWI.lock();
+    // Safety: The TWI and BAROMETER mutexes are not accessed in an interrupt
+    let twi = unsafe { TWI.no_critical_section_lock_mut() };
+    let baro = unsafe { BAROMETER.no_critical_section_lock_mut() };
+
     let now = Instant::now();
 
     match baro.loop_state {
@@ -175,5 +178,8 @@ fn update() {
 /// This function will never block, instead it will return an old value if no new value is available.
 pub fn read_pressure() -> u32 {
     update();
-    BAROMETER.lock().most_recent_pressure
+
+    // Safety: The BAROMETER mutexes is not accessed in an interrupt
+    let baro = unsafe { BAROMETER.no_critical_section_lock_mut() };
+    baro.most_recent_pressure
 }

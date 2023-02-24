@@ -76,13 +76,15 @@ pub(crate) fn initialize(
     let pin_hold = pin_hold.into_push_pull_output(Level::High);
     let pin_cs = pin_cs.into_push_pull_output(Level::High);
 
-    let mut spi_flash = FLASH.lock();
-    spi_flash.initialize(SpiFlash {
-        spi,
-        _pin_wp: pin_wp,
-        _pin_hold: pin_hold,
-        pin_cs,
+    FLASH.modify(|spi_flash| {
+        spi_flash.initialize(SpiFlash {
+            spi,
+            _pin_wp: pin_wp,
+            _pin_hold: pin_hold,
+            pin_cs,
+        });
     });
+
     flash_enable_wsr()?;
     flash_set_wrsr()?;
     flash_chip_erase()?;
@@ -94,7 +96,8 @@ pub(crate) fn initialize(
 fn spi_master_tx(tx_data: &[u8]) -> Result<(), FlashError> {
     assert_ne!(tx_data.len(), 0);
 
-    let mut guard = FLASH.lock();
+    // Safety: The FLASH mutex is not accessed in an interrupt
+    let guard = unsafe { FLASH.no_critical_section_lock_mut() };
 
     // Enable slave
     guard.pin_cs.set_low()?;
@@ -108,14 +111,15 @@ fn spi_master_tx(tx_data: &[u8]) -> Result<(), FlashError> {
 
     // Disable slave
     guard.pin_cs.set_high()?;
-
     Ok(())
 }
 
 /// Transmit data over SPI. Optimized to read bytes from the flash memory.
 fn spi_master_tx_rx_fast_read(tx_data: [u8; 4], rx_data: &mut [u8]) -> Result<(), FlashError> {
     assert_ne!(rx_data.len(), 0);
-    let mut guard = FLASH.lock();
+
+    // Safety: The FLASH mutex is not accessed in an interrupt
+    let guard = unsafe { FLASH.no_critical_section_lock_mut() };
 
     // Enable slave
     guard.pin_cs.set_low()?;
@@ -144,7 +148,9 @@ fn spi_master_tx_rx_fast_write(tx_data: [u8; 4], bytes: &[u8]) -> Result<(), Fla
     let address: u32 =
         u32::from(tx_data[3]) + (u32::from(tx_data[2]) << 8) + (u32::from(tx_data[1]) << 16);
 
-    let mut guard = FLASH.lock();
+    // Safety: The FLASH mutex is not accessed in an interrupt
+    let guard = unsafe { FLASH.no_critical_section_lock_mut() };
+
     // Enable slave
     guard.pin_cs.set_low()?;
 
