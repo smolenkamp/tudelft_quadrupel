@@ -1,4 +1,4 @@
-use crate::mutex::{LockGuard, Mutex};
+use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
 use cortex_m::peripheral::NVIC;
 use nrf51_pac::interrupt;
@@ -44,17 +44,19 @@ pub(crate) fn initialize(uart: nrf51_pac::UART0, nvic: &mut NVIC) {
     // actualy enable the uart interrupt
     unsafe { NVIC::unmask(nrf51_pac::Interrupt::UART0) };
 
-    UART.lock().initialize(UartDriver {
-        rx_buffer: ConstGenericRingBuffer::default(),
-        tx_buffer: ConstGenericRingBuffer::default(),
-        tx_data_available: true,
-        uart,
-    });
+    UART.modify(|uartd| {
+        uartd.initialize(UartDriver {
+            rx_buffer: ConstGenericRingBuffer::default(),
+            tx_buffer: ConstGenericRingBuffer::default(),
+            tx_data_available: true,
+            uart,
+        })
+    })
 }
 
 /// Checks if the UART is initialized
 pub fn is_initialized() -> bool {
-    UART.lock().is_initialized()
+    UART.modify(|uart| uart.is_initialized())
 }
 
 /// Safe usage: this should only be called if you never run any real code after this again.
@@ -63,45 +65,46 @@ pub fn is_initialized() -> bool {
 /// again
 #[doc(hidden)]
 pub unsafe fn uninitialize() {
-    UART.lock().uninitialize();
+    UART.modify(|uart| uart.uninitialize())
 }
 
 /// Reads as many bytes as possible from the UART
 pub fn receive_bytes(bytes: &mut [u8]) -> usize {
-    let mut uart = UART.lock();
-
-    let mut i = 0;
-    while let Some(byte) = get_byte(&mut uart) {
-        bytes[i] = byte;
-        i += 1;
-        if i == bytes.len() {
-            break;
+    UART.modify(|uart| {
+        let mut i = 0;
+        while let Some(byte) = get_byte(uart) {
+            bytes[i] = byte;
+            i += 1;
+            if i == bytes.len() {
+                break;
+            }
         }
-    }
-    i
+        i
+    })
 }
 
 /// Reads a single byte from the UART
-fn get_byte(uart: &mut LockGuard<OnceCell<UartDriver>>) -> Option<u8> {
+fn get_byte(uart: &mut OnceCell<UartDriver>) -> Option<u8> {
     uart.rx_buffer.dequeue()
 }
 
 /// Writes the entire buffer over UART
 pub fn send_bytes(bytes: &[u8]) -> bool {
-    let mut uart = UART.lock();
-    if uart.tx_buffer.len() + bytes.len() >= uart.tx_buffer.capacity() {
-        return false;
-    }
+    UART.modify(|uart| {
+        if uart.tx_buffer.len() + bytes.len() >= uart.tx_buffer.capacity() {
+            return false;
+        }
 
-    for byte in bytes {
-        put_byte(&mut uart, *byte);
-    }
+        for byte in bytes {
+            put_byte(uart, *byte);
+        }
 
-    true
+        true
+    })
 }
 
 /// Pushes a single byte over uart
-fn put_byte(uart: &mut LockGuard<OnceCell<UartDriver>>, byte: u8) {
+fn put_byte(uart: &mut OnceCell<UartDriver>, byte: u8) {
     if uart.tx_data_available {
         uart.tx_data_available = false;
         uart.uart.txd.write(|w| unsafe { w.txd().bits(byte) });
@@ -115,7 +118,7 @@ fn put_byte(uart: &mut LockGuard<OnceCell<UartDriver>>, byte: u8) {
 /// It's called when the enabled interrupts for uart0 are triggered
 unsafe fn UART0() {
     // Safety: interrupts are already turned off here, since we are inside an interrupt
-    let uart = unsafe { UART.no_critical_section_lock() };
+    let uart = unsafe { UART.no_critical_section_lock_mut() };
 
     if uart.uart.events_rxdrdy.read().bits() != 0 {
         uart.uart.events_rxdrdy.reset();

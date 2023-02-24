@@ -54,8 +54,8 @@ pub mod flash;
 /// Initialize all the drivers
 pub mod initialize;
 
-/// Utilities to control the leds on the board. 
-/// 
+/// Utilities to control the leds on the board.
+///
 /// Note that in the template,
 /// some leds have already been assigned meaning:
 ///

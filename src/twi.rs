@@ -13,12 +13,14 @@ pub(crate) fn initialize(twi: TWI0, scl_pin: P0_04<Disconnected>, sda_pin: P0_02
     let scl_pin = scl_pin.into_floating_input();
     let sda_pin = sda_pin.into_floating_input();
 
-    TWI.lock().initialize(Twi::new(
-        twi,
-        Pins {
-            scl: Pin::from(scl_pin),
-            sda: Pin::from(sda_pin),
-        },
-        FREQUENCY_A::K400,
-    ));
+    TWI.modify(|t| {
+        t.initialize(Twi::new(
+            twi,
+            Pins {
+                scl: Pin::from(scl_pin),
+                sda: Pin::from(sda_pin),
+            },
+            FREQUENCY_A::K400,
+        ))
+    });
 }

@@ -32,9 +32,10 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], debug: bool) {
     assembly_delay(2_500_000);
 
     // keep this guard around until the end of the function (so interrupts stay off)
-    let mut guard = INITIALIZED.lock();
-    assert!(!(*guard), "ALREADY INITIALIZED");
-    *guard = true;
+    INITIALIZED.modify(|guard| {
+        assert!(!(*guard), "ALREADY INITIALIZED");
+        *guard = true;
+    });
 
     // unwrap: will never panic because this function can only be called once (see the guard above)
     let mut nrf51_peripherals = Peripherals::take().unwrap();
