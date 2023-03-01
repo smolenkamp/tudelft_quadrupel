@@ -61,6 +61,8 @@ struct Ms5611 {
     temp_coef_pressure_offset: u16,
     /// From datasheet, C5.
     temp_ref: u16,
+    /// From datasheet, C6.
+    temp_coef: u16,
 
     /// What should the oversampling ratio of the chip be?
     over_sampling_ratio: OverSamplingRatio,
@@ -70,6 +72,9 @@ struct Ms5611 {
 
     /// Pressure in 10^-5 bar
     most_recent_pressure: u32,
+
+    /// Temperature in centi-degrees Celsius
+    most_recent_temperature: i32,
 }
 
 static BAROMETER: Mutex<OnceCell<Ms5611>> = Mutex::new(OnceCell::uninitialized());
@@ -91,9 +96,11 @@ pub(crate) fn initialize() {
                 temp_coef_pressure_sensitivity: prom[3],
                 temp_coef_pressure_offset: prom[4],
                 temp_ref: prom[5],
+                temp_coef: prom[6],
                 over_sampling_ratio: OverSamplingRatio::Opt4096,
                 loop_state: Ms5611LoopState::Reset,
                 most_recent_pressure: 0,
+                most_recent_temperature: 0,
             })
         })
     });
@@ -160,12 +167,30 @@ fn update() {
 
             //Use D1 and D2 to find the new pressure and temperature
             //Calculated using the ms5611 reference manual
-            let dt = d2 - (u64::from(baro.temp_ref) << 8);
-            let offset: u64 = (u64::from(baro.pressure_offset) << 16)
-                + ((dt * u64::from(baro.temp_coef_pressure_offset)) >> 7);
-            let sens: u64 = (u64::from(baro.pressure_sensitivity) << 15)
-                + ((dt * u64::from(baro.temp_coef_pressure_sensitivity)) >> 8);
-            baro.most_recent_pressure = ((((d1 * sens) >> 21) - offset) >> 15) as u32;
+            let dt: i64 = (d2 as i64) - ((baro.temp_ref as i64) << 8);
+            let offset: i64 = ((baro.pressure_offset as i64) << 16)
+                + ((dt * (baro.temp_coef_pressure_offset as i64)) >> 7);
+            let sens: i64 = ((baro.pressure_sensitivity as i64) << 15)
+                + ((dt * (baro.temp_coef_pressure_sensitivity as i64)) >> 8);
+
+            // Compensation for low temperature
+            let temp: i64 = 2000 + ((dt * (baro.temp_coef as i64)) >> 23);
+            let (t2, off2, sens2);
+            if temp <= 2000 {
+                t2 = dt.pow(2) >> 31;
+                off2 = 5 * (temp - 2000).pow(2) / 2;
+                sens2 = off2 / 2;
+            } else {
+                t2 = 0;
+                off2 = 0;
+                sens2 = 0;
+            }
+            let temp = temp - t2;
+            let offset = offset - off2;
+            let sens = sens - sens2;
+
+            baro.most_recent_pressure = (((((d1 as i64) * sens) >> 21) - offset) >> 15) as u32;
+            baro.most_recent_temperature = temp as i32;
 
             //Then set loop state for next iteration, and we can do the next iteration immediately
             baro.loop_state = Ms5611LoopState::Reset;
@@ -182,4 +207,14 @@ pub fn read_pressure() -> u32 {
     // Safety: The BAROMETER mutexes is not accessed in an interrupt
     let baro = unsafe { BAROMETER.no_critical_section_lock_mut() };
     baro.most_recent_pressure
+}
+
+/// Returns temperature in centi-degrees celsius (for example: 20.00 °C becomes 2000)
+/// This function will never block, instead it will return an old value if no new value is available.
+pub fn read_temperature() -> i32 {
+    update();
+
+    // Safety: The BAROMETER mutexes is not accessed in an interrupt
+    let baro = unsafe { BAROMETER.no_critical_section_lock_mut() };
+    baro.most_recent_temperature
 }
