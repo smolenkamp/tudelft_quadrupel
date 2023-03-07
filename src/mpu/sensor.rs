@@ -7,7 +7,6 @@ use crate::mpu::structs::{Accel, Gyro};
 use crate::time::delay_ms_assembly;
 use core::marker::PhantomData;
 use core::time::Duration;
-use cortex_m::interrupt::free;
 use embedded_hal::blocking::i2c::{Write, WriteRead};
 
 const MPU6050_ADDRESS: u8 = 0x68;
