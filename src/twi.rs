@@ -16,7 +16,7 @@ pub struct TwiWrapper {
 impl embedded_hal::blocking::i2c::Write for TwiWrapper {
     type Error = Error;
 
-    fn write<'w>(&mut self, addr: u8, bytes: &'w [u8]) -> Result<(), Error> {
+    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
         cortex_m::interrupt::free(|_| self.twi.write(addr, bytes))
     }
 }
@@ -24,7 +24,7 @@ impl embedded_hal::blocking::i2c::Write for TwiWrapper {
 impl embedded_hal::blocking::i2c::Read for TwiWrapper {
     type Error = Error;
 
-    fn read<'w>(&mut self, addr: u8, bytes: &'w mut [u8]) -> Result<(), Error> {
+    fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), Error> {
         cortex_m::interrupt::free(|_| self.twi.read(addr, bytes))
     }
 }
