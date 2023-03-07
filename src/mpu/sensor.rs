@@ -8,6 +8,7 @@ use crate::time::delay_ms_assembly;
 use core::marker::PhantomData;
 use core::time::Duration;
 use embedded_hal::blocking::i2c::{Write, WriteRead};
+use cortex_m::interrupt::free;
 use crate::led::Led::Yellow;
 
 const MPU6050_ADDRESS: u8 = 0x68;
@@ -68,7 +69,7 @@ where
         response: &mut [u8],
     ) -> Result<(), Error<I2c>> {
         Yellow.on();
-        let result = i2c.write_read(MPU6050_ADDRESS, bytes, response)
+        let result = free(|_| i2c.write_read(MPU6050_ADDRESS, bytes, response))
             .map_err(|e| Error::WriteRead(e));
         Yellow.off();
         result
