@@ -29,8 +29,6 @@ pub extern crate nrf51_hal;
 pub use cortex_m_rt::entry;
 /// reexport of the `nb::block` macro.
 pub use nb::block;
-/// reexport of the `nb` crate.
-pub use nb;
 
 /// reexport of the `cortex_m` crate
 pub use cortex_m;
@@ -42,9 +40,6 @@ pub use fixed;
 pub use nrf51_pac;
 /// reexport of the `ringbuffer` crate
 pub use ringbuffer;
-
-/// Blocking macros with a maximum retry counter
-pub mod block;
 
 /// Utilities to read out the barometer
 pub mod barometer;
