@@ -3,10 +3,8 @@ use crate::mpu::error::Error;
 use crate::mpu::sensor::Mpu6050;
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
-use crate::twi::TWI;
+use crate::twi::{TwiWrapper, TWI};
 use nb::Error::WouldBlock;
-use nrf51_hal::Twi;
-use nrf51_pac::TWI0;
 use structs::{Accel, Gyro, Quaternion};
 
 #[allow(unused)]
@@ -27,7 +25,7 @@ pub const SAMPLE_RATE_DIVIDER_MPU: u8 = 0;
 pub const SAMPLE_RATE_DIVIDER_RAW: u8 = 0;
 
 struct Mpu {
-    mpu: Mpu6050<Twi<TWI0>>,
+    mpu: Mpu6050<TwiWrapper>,
     dmp_enabled: bool,
 }
 
@@ -35,7 +33,7 @@ static MPU: Mutex<OnceCell<Mpu>> = Mutex::new(OnceCell::uninitialized());
 
 pub(crate) fn initialize() {
     TWI.modify(|twi| {
-        let mut mpu: Mpu6050<Twi<TWI0>> = Mpu6050::new(&mut **twi).unwrap();
+        let mut mpu: Mpu6050<TwiWrapper> = Mpu6050::new(&mut **twi).unwrap();
 
         mpu.initialize_dmp(twi).unwrap();
 
@@ -79,7 +77,7 @@ pub fn disable_dmp() {
 ///
 /// # Errors
 /// when the global constant `SAMPLE_RATE_DIVIDER_MPU` is wrong (i.e. will not panic under normal conditions)
-pub fn enable_dmp() -> Result<(), Error<Twi<TWI0>>> {
+pub fn enable_dmp() -> Result<(), Error<TwiWrapper>> {
     // Safety: The TWI and MPU mutexes are not accessed in an interrupt
     let twi = unsafe { TWI.no_critical_section_lock_mut() };
     let mpu = unsafe { MPU.no_critical_section_lock_mut() };
@@ -102,7 +100,7 @@ pub fn enable_dmp() -> Result<(), Error<Twi<TWI0>>> {
 ///
 /// # Errors
 /// when a TWI(I2C) operation failed
-pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<Twi<TWI0>>> {
+pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<TwiWrapper>> {
     // Safety: The TWI and MPU mutexes are not accessed in an interrupt
     let twi = unsafe { TWI.no_critical_section_lock_mut() };
     let mpu = unsafe { MPU.no_critical_section_lock_mut() };
@@ -131,7 +129,7 @@ pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<Twi<TWI0>>> {
 ///
 /// # Errors
 /// when a TWI operation failed
-pub fn read_raw() -> Result<(Accel, Gyro), Error<Twi<TWI0>>> {
+pub fn read_raw() -> Result<(Accel, Gyro), Error<TwiWrapper>> {
     // Safety: The TWI and MPU mutexes are not accessed in an interrupt
     let twi = unsafe { TWI.no_critical_section_lock_mut() };
     let mpu = unsafe { MPU.no_critical_section_lock_mut() };

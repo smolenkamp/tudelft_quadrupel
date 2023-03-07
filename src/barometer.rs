@@ -3,7 +3,9 @@ use crate::once_cell::OnceCell;
 use crate::time::Instant;
 use crate::twi::TWI;
 use core::time::Duration;
-use embedded_hal::prelude::_embedded_hal_blocking_i2c_WriteRead;
+use embedded_hal::prelude::{
+    _embedded_hal_blocking_i2c_Write, _embedded_hal_blocking_i2c_WriteRead,
+};
 
 const MS5611_ADDR: u8 = 0b0111_0111;
 const REG_READ: u8 = 0x0;
