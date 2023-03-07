@@ -1,9 +1,6 @@
 use crate::mutex::Mutex;
-use crate::nrf51_hal::prelude::OutputPin;
 use crate::once_cell::OnceCell;
 use cortex_m::peripheral::NVIC;
-use nrf51_hal::gpio::p0::P0_20;
-use nrf51_hal::gpio::{Disconnected, Level, Output, PushPull};
 use nrf51_pac::{interrupt, Interrupt, GPIOTE, PPI};
 
 struct Motors {
@@ -11,7 +8,6 @@ struct Motors {
     motor_max: u16,
     timer1: nrf51_pac::TIMER1,
     timer2: nrf51_pac::TIMER2,
-    pin20: P0_20<Output<PushPull>>,
 }
 
 const MOTOR_0_PIN: u8 = 21;
@@ -63,18 +59,13 @@ pub(crate) fn initialize(
     nvic: &mut NVIC,
     ppi: &mut PPI,
     gpiote: &mut GPIOTE,
-    pin20: P0_20<Disconnected>,
 ) {
-    // Configure pin20
-    let pin20 = pin20.into_push_pull_output(Level::Low);
-
     MOTORS.modify(|motors| {
         motors.initialize(Motors {
             motor_values: [0; 4],
             motor_max: 400,
             timer1,
             timer2,
-            pin20,
         });
 
         // Configure GPIOTE. GPIOTE is stands for GPIO tasks and events.
@@ -270,11 +261,9 @@ unsafe fn TIMER1() {
         motors.timer1.tasks_capture[2].write(|w| w.bits(1));
 
         if motors.timer1.cc[2].read().bits() < 500 {
-            motors.pin20.set_high().unwrap();
             // Safety: Any time is allowed
             motors.timer1.cc[0].write(|w| w.bits(u32::from(1000 + motors.motor_values[0])));
             motors.timer1.cc[1].write(|w| w.bits(u32::from(1000 + motors.motor_values[1])));
-            motors.pin20.set_low().unwrap();
         }
     }
 }

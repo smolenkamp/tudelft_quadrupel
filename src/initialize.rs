@@ -97,7 +97,6 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], debug: bool) {
         &mut cortex_m_peripherals.NVIC,
         &mut nrf51_peripherals.PPI,
         &mut nrf51_peripherals.GPIOTE,
-        gpio.p0_20,
     );
     if debug {
         let _ = send_bytes(b"MOTOR driver initialized\n");
