@@ -4,7 +4,6 @@ use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use core::time::Duration;
 use nrf51_pac::interrupt;
 
-use crate::led::Led;
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
 /// Delay for a number of CPU cycles. Very inaccurate
