@@ -4,6 +4,7 @@ use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use core::time::Duration;
 use nrf51_pac::interrupt;
 
+use crate::led::Led;
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
 /// Delay for a number of CPU cycles. Very inaccurate
@@ -181,6 +182,14 @@ unsafe fn RTC0() {
 
 /// Wait for the next interrupt configured by `set_interrupt_frequency`.
 pub fn wait_for_next_tick() {
+    RTC.modify(|rtc| {
+        if rtc.is_event_triggered(RtcInterrupt::Compare0) {
+            // the compare register has already triggered
+            TIMER_FLAG.store(false, Ordering::SeqCst);
+            return;
+        }
+    });
+
     while !TIMER_FLAG.load(Ordering::SeqCst) {
         cortex_m::asm::wfi();
     }
