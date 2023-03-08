@@ -8,7 +8,6 @@ use nrf51_hal::twi::Error;
 use nrf51_pac::twi0::frequency::FREQUENCY_A;
 use nrf51_pac::{GPIO, Interrupt, TWI0};
 use nrf51_pac::interrupt;
-use crate::led::Red;
 
 const FREQ: FREQUENCY_A = FREQUENCY_A::K400;
 
@@ -207,16 +206,10 @@ unsafe fn SPI0_TWI0() {
 
     if twi.twi.events_rxdready.read().bits() != 0 {
         twi.twi.events_rxdready.reset();
-        if twi.rec.load(Ordering::SeqCst) {
-            Red.on();
-        }
         twi.rec.store(true, Ordering::SeqCst);
     }
     if twi.twi.events_txdsent.read().bits() != 0 {
         twi.twi.events_txdsent.reset();
-        if twi.sent.load(Ordering::SeqCst) {
-            Red.on();
-        }
         twi.sent.store(true, Ordering::SeqCst);
     }
     if twi.twi.events_stopped.read().bits() != 0 {
