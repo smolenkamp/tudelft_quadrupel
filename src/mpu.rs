@@ -32,21 +32,21 @@ struct Mpu {
 static MPU: Mutex<OnceCell<Mpu>> = Mutex::new(OnceCell::uninitialized());
 
 pub(crate) fn initialize() {
-    TWI.modify(|twi| {
-        let mut mpu: Mpu6050<TwiWrapper> = Mpu6050::new(&mut **twi).unwrap();
+    let twi = unsafe { TWI.no_critical_section_lock_mut() };
 
-        mpu.initialize_dmp(twi).unwrap();
+    let mut mpu: Mpu6050<TwiWrapper> = Mpu6050::new(&mut **twi).unwrap();
 
-        mpu.set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_MPU)
-            .unwrap();
-        mpu.set_digital_lowpass_filter(twi, DigitalLowPassFilter::Filter5)
-            .unwrap();
-        MPU.modify(|m| {
-            m.initialize(Mpu {
-                mpu,
-                dmp_enabled: true,
-            })
-        });
+    mpu.initialize_dmp(twi).unwrap();
+
+    mpu.set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_MPU)
+        .unwrap();
+    mpu.set_digital_lowpass_filter(twi, DigitalLowPassFilter::Filter5)
+        .unwrap();
+    MPU.modify(|m| {
+        m.initialize(Mpu {
+            mpu,
+            dmp_enabled: true,
+        })
     });
 }
 

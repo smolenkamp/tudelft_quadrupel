@@ -6,6 +6,7 @@ use crate::{barometer, battery, flash, led, motor, mpu, time, twi, uart};
 use alloc_cortex_m::CortexMHeap;
 use core::mem::MaybeUninit;
 use nrf51_pac::Peripherals;
+
 static INITIALIZED: Mutex<bool> = Mutex::new(false);
 
 #[global_allocator]

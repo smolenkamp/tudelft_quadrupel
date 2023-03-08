@@ -82,30 +82,30 @@ struct Ms5611 {
 static BAROMETER: Mutex<OnceCell<Ms5611>> = Mutex::new(OnceCell::uninitialized());
 
 pub(crate) fn initialize() {
-    TWI.modify(|twi| {
-        let mut prom = [0; 8];
-        let mut data = [0u8; 2];
-        for c in 0..8 {
-            twi.write_read(MS5611_ADDR, &[REG_PROM + 2 * c], &mut data)
-                .unwrap();
-            prom[c as usize] = u16::from_be_bytes(data);
-        }
+    let twi = unsafe { TWI.no_critical_section_lock_mut() };
 
-        BAROMETER.modify(|baro| {
-            baro.initialize(Ms5611 {
-                pressure_sensitivity: prom[1],
-                pressure_offset: prom[2],
-                temp_coef_pressure_sensitivity: prom[3],
-                temp_coef_pressure_offset: prom[4],
-                temp_ref: prom[5],
-                temp_coef: prom[6],
-                over_sampling_ratio: OverSamplingRatio::Opt4096,
-                loop_state: Ms5611LoopState::Reset,
-                most_recent_pressure: 0,
-                most_recent_temperature: 0,
-            })
+    let mut prom = [0; 8];
+    let mut data = [0u8; 2];
+    for c in 0..8 {
+        twi.write_read(MS5611_ADDR, &[REG_PROM + 2 * c], &mut data)
+            .unwrap();
+        prom[c as usize] = u16::from_be_bytes(data);
+    }
+
+    BAROMETER.modify(|baro| {
+        baro.initialize(Ms5611 {
+            pressure_sensitivity: prom[1],
+            pressure_offset: prom[2],
+            temp_coef_pressure_sensitivity: prom[3],
+            temp_coef_pressure_offset: prom[4],
+            temp_ref: prom[5],
+            temp_coef: prom[6],
+            over_sampling_ratio: OverSamplingRatio::Opt4096,
+            loop_state: Ms5611LoopState::Reset,
+            most_recent_pressure: 0,
+            most_recent_temperature: 0,
         })
-    });
+    })
 }
 
 fn update() {

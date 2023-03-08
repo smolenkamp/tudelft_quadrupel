@@ -8,6 +8,7 @@ use nrf51_hal::twi::Error;
 use nrf51_pac::twi0::frequency::FREQUENCY_A;
 use nrf51_pac::{GPIO, Interrupt, TWI0};
 use nrf51_pac::interrupt;
+use crate::led::Red;
 
 const FREQ: FREQUENCY_A = FREQUENCY_A::K400;
 
@@ -17,27 +18,67 @@ pub struct TwiWrapper {
     twi: TWI0,
     sent: AtomicBool,
     rec: AtomicBool,
+    stopped: AtomicBool,
 }
 
 impl embedded_hal::blocking::i2c::Write for TwiWrapper {
     type Error = Error;
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
-        // Clear sent/rec in case some event has been received in the meantime
+        // Make sure all previously used shortcuts are disabled.
+        self.twi
+            .shorts
+            .write(|w| w.bb_stop().disabled().bb_suspend().disabled());
+
+        // Set Slave I2C address.
+        self.twi
+            .address
+            .write(|w| unsafe { w.address().bits(addr.into()) });
+
+        // Start data transmission.
+        self.twi.tasks_starttx.write(|w| unsafe { w.bits(1) });
+
+        // Clock out all bytes.
+        for byte in bytes {
+            self.send_byte(*byte)?;
+        }
+
+        // Send stop.
+        self.send_stop()?;
+        Ok(())
+    }
+}
+
+impl TwiWrapper {
+    fn send_byte(&self, byte: u8) -> Result<(), Error> {
+        // Copy data into the send buffer.
+        self.twi.txd.write(|w| unsafe { w.bits(u32::from(byte)) });
+
+        // Wait until transmission was confirmed.
+        while !self.sent.load(Ordering::SeqCst) {}
         self.sent.store(false, Ordering::SeqCst);
 
-        // Setup for task
-        self.twi.address.write(|w| unsafe { w.address().bits(addr) });
-        self.twi.shorts.write(|w| w.bb_stop().disabled().bb_suspend().disabled());
+        Ok(())
+    }
 
-        // Write data
-        self.twi.tasks_starttx.write(|w| unsafe { w.bits(1) });
-        for byte in bytes {
-            self.twi.txd.write(|w| w.txd().variant(*byte));
-            while !self.sent.load(Ordering::SeqCst) {}
-            self.sent.store(false, Ordering::SeqCst);
-        }
+    fn recv_byte(&self) -> Result<u8, Error> {
+        // Wait until something ended up in the buffer.
+        while !self.rec.load(Ordering::SeqCst) {}
+        self.rec.store(false, Ordering::SeqCst);
+
+        // Read out data.
+        let out = self.twi.rxd.read().bits() as u8;
+
+        Ok(out)
+    }
+
+    fn send_stop(&self) -> Result<(), Error> {
+        // Start stop condition.
         self.twi.tasks_stop.write(|w| unsafe { w.bits(1) });
+
+        // Wait until stop was sent.
+        while !self.stopped.load(Ordering::SeqCst) {}
+        self.stopped.store(false, Ordering::SeqCst);
 
         Ok(())
     }
@@ -52,39 +93,47 @@ impl embedded_hal::blocking::i2c::WriteRead for TwiWrapper {
         bytes: &'w [u8],
         buffer: &'w mut [u8],
     ) -> Result<(), Error> {
-        // Clear sent/rec in case some event has been received in the meantime
-        self.sent.store(false, Ordering::SeqCst);
-        self.rec.store(false, Ordering::SeqCst);
+        // Make sure all previously used shortcuts are disabled.
+        self.twi
+            .shorts
+            .write(|w| w.bb_stop().disabled().bb_suspend().disabled());
 
-        // Setup for task
-        self.twi.address.write(|w| unsafe { w.address().bits(addr) });
-        self.twi.shorts.write(|w| w.bb_stop().disabled().bb_suspend().disabled());
+        // Set Slave I2C address.
+        self.twi
+            .address
+            .write(|w| unsafe { w.address().bits(addr.into()) });
+
+        // Start data transmission.
         self.twi.tasks_starttx.write(|w| unsafe { w.bits(1) });
 
-        // Write data
-        self.twi.tasks_starttx.write(|w| unsafe { w.bits(1) });
+        // Send out all bytes in the outgoing buffer.
         for byte in bytes {
-            self.twi.txd.write(|w| w.txd().variant(*byte));
-            while !self.sent.load(Ordering::SeqCst) {}
-            self.sent.store(false, Ordering::SeqCst);
+            self.send_byte(*byte)?;
         }
 
-        // Read data
-        self.twi.shorts.write(|w| w.bb_suspend().set_bit());
-        self.twi.tasks_startrx.write(|w| unsafe { w.bits(1) });
-        let last = buffer.len() - 1;
-        for (i, byte) in buffer.iter_mut().enumerate() {
-            // After the last byte, stop tasks
-            if i == last {
-                self.twi.shorts.write(|w| w.bb_suspend().clear_bit().bb_stop().set_bit());
+        // Turn around to read data.
+        if let Some((last, before)) = buffer.split_last_mut() {
+            // If we want to read multiple bytes we need to use the suspend mode.
+            if !before.is_empty() {
+                self.twi.shorts.write(|w| w.bb_suspend().enabled());
+            } else {
+                self.twi.shorts.write(|w| w.bb_stop().enabled());
             }
 
-            while !self.rec.load(Ordering::SeqCst) {}
-            self.rec.store(false, Ordering::SeqCst);
-            *byte = self.twi.rxd.read().bits() as u8;
-            self.twi.tasks_resume.write(|w| unsafe { w.bits(1) });
-        }
+            // Start data reception.
+            self.twi.tasks_startrx.write(|w| unsafe { w.bits(1) });
 
+            for byte in &mut before.into_iter() {
+                self.twi.tasks_resume.write(|w| unsafe { w.bits(1) });
+                *byte = self.recv_byte()?;
+            }
+
+            self.twi.shorts.write(|w| w.bb_stop().enabled());
+            self.twi.tasks_resume.write(|w| unsafe { w.bits(1) });
+            *last = self.recv_byte()?;
+        } else {
+            self.send_stop()?;
+        }
         Ok(())
     }
 }
@@ -130,7 +179,7 @@ pub(crate) fn initialize(twi: TWI0, scl_pin: P0_04<Disconnected>, sda_pin: P0_02
     twi.frequency.write(|w| w.frequency().variant(FREQ));
 
     // Set which interrupts we want to receive
-    twi.intenset.write(|w| w.txdsent().set_bit().rxdready().set_bit().error().set_bit());
+    twi.intenset.write(|w| w.txdsent().set_bit().rxdready().set_bit().error().set_bit().stopped().set_bit());
     twi.enable.write(|w| w.enable().enabled());
 
     // Initialize oncecell
@@ -138,6 +187,7 @@ pub(crate) fn initialize(twi: TWI0, scl_pin: P0_04<Disconnected>, sda_pin: P0_02
         twi,
         rec: false.into(),
         sent: false.into(),
+        stopped: false.into(),
     }));
 
     // Setup NVIC
@@ -157,11 +207,21 @@ unsafe fn SPI0_TWI0() {
 
     if twi.twi.events_rxdready.read().bits() != 0 {
         twi.twi.events_rxdready.reset();
+        if twi.rec.load(Ordering::SeqCst) {
+            Red.on();
+        }
         twi.rec.store(true, Ordering::SeqCst);
     }
     if twi.twi.events_txdsent.read().bits() != 0 {
         twi.twi.events_txdsent.reset();
+        if twi.sent.load(Ordering::SeqCst) {
+            Red.on();
+        }
         twi.sent.store(true, Ordering::SeqCst);
+    }
+    if twi.twi.events_stopped.read().bits() != 0 {
+        twi.twi.events_stopped.reset();
+        twi.stopped.store(true, Ordering::SeqCst);
     }
 
     // Errors are silently ignored
