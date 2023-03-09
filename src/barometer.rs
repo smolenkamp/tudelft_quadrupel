@@ -82,6 +82,7 @@ struct Ms5611 {
 static BAROMETER: Mutex<OnceCell<Ms5611>> = Mutex::new(OnceCell::uninitialized());
 
 pub(crate) fn initialize() {
+    // Safety: The TWI mutex is not accessed in an interrupt
     let twi = unsafe { TWI.no_critical_section_lock_mut() };
 
     let mut prom = [0; 8];

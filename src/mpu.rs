@@ -32,6 +32,7 @@ struct Mpu {
 static MPU: Mutex<OnceCell<Mpu>> = Mutex::new(OnceCell::uninitialized());
 
 pub(crate) fn initialize() {
+    // Safety: The TWI mutex is not accessed in an interrupt
     let twi = unsafe { TWI.no_critical_section_lock_mut() };
 
     let mut mpu: Mpu6050<TwiWrapper> = Mpu6050::new(&mut **twi).unwrap();
