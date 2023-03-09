@@ -63,7 +63,12 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], debug: bool) {
     if debug {
         let _ = send_bytes(b"RTC driver initialized\n");
     }
-    twi::initialize(nrf51_peripherals.TWI0, gpio.p0_04, gpio.p0_02, &mut cortex_m_peripherals.NVIC);
+    twi::initialize(
+        nrf51_peripherals.TWI0,
+        gpio.p0_04,
+        gpio.p0_02,
+        &mut cortex_m_peripherals.NVIC,
+    );
     if debug {
         let _ = send_bytes(b"TWI initialized\n");
     }
