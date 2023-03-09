@@ -181,6 +181,18 @@ unsafe fn RTC0() {
 
 /// Wait for the next interrupt configured by `set_interrupt_frequency`.
 pub fn wait_for_next_tick() {
+    if RTC.modify(|rtc| {
+        if rtc.is_event_triggered(RtcInterrupt::Compare0) {
+            // the compare register has already triggered
+            TIMER_FLAG.store(false, Ordering::SeqCst);
+            true
+        } else {
+            false
+        }
+    }) {
+        return;
+    }
+
     while !TIMER_FLAG.load(Ordering::SeqCst) {
         cortex_m::asm::wfi();
     }
