@@ -6,7 +6,6 @@ use crate::once_cell::OnceCell;
 use crate::twi::{TwiWrapper, TWI};
 use nb::Error::WouldBlock;
 use structs::{Accel, Gyro, Quaternion};
-use crate::uart::send_bytes;
 
 #[allow(unused)]
 mod config;
