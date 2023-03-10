@@ -1,3 +1,4 @@
+use alloc::format;
 use crate::mpu::config::DigitalLowPassFilter;
 use crate::mpu::error::Error;
 use crate::mpu::sensor::Mpu6050;
@@ -7,6 +8,7 @@ use crate::twi::{TwiWrapper, TWI};
 use nb::Error::WouldBlock;
 use structs::{Accel, Gyro, Quaternion};
 use crate::led::Red;
+use crate::uart::send_bytes;
 
 #[allow(unused)]
 mod config;
@@ -115,9 +117,11 @@ pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<TwiWrapper>> {
         return Err(WouldBlock);
     }
 
+    send_bytes(&format!("LEN {len} ").as_bytes());
+
     // If we got mis-aligned, we skip a packet
     if len % 28 != 0 {
-        let skip = 28 - len % 28;
+        let skip = len % 28;
         let mut buf = [0; 28];
 
         let _ = Red.toggle();

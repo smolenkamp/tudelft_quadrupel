@@ -1,12 +1,5 @@
 #![no_std]
 #![feature(strict_provenance)]
-#![deny(missing_docs)]
-#![deny(warnings)]
-#![deny(unused_import_braces)]
-#![deny(unused_results)]
-#![deny(trivial_casts)]
-#![deny(trivial_numeric_casts)]
-#![deny(unused_qualifications)]
 // don't want this to show up in pedantic for now
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::module_name_repetitions)]
