@@ -217,17 +217,7 @@ where
         i2c: &mut I2c,
         buf: &'a mut [u8],
     ) -> Result<&'a [u8], Error<I2c>> {
-        let mut len = self.get_fifo_count(i2c)?;
-
-        if buf.len() < len {
-            len = buf.len();
-        }
-
-        if len == 0 {
-            Ok(&buf[0..0])
-        } else {
-            self.read_registers(i2c, Register::FifoRw, &mut buf[0..len])
-        }
+        self.read_registers(i2c, Register::FifoRw, &mut buf[..])
     }
 
     pub fn get_fifo_enabled(&mut self, i2c: &mut I2c) -> Result<Fifo, Error<I2c>> {
