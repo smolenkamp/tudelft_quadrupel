@@ -1,6 +1,7 @@
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
 use cortex_m::peripheral::NVIC;
+use nrf51_hal::gpio::Level;
 use nrf51_pac::{interrupt, Interrupt, GPIOTE, PPI};
 
 struct Motors {
@@ -237,6 +238,7 @@ pub(crate) fn initialize(
 
 #[interrupt]
 unsafe fn TIMER2() {
+    let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_20.into_push_pull_output(Level::High) };
     // Safety: interrupts are already turned off here, since we are inside an interrupt
     let motors = unsafe { MOTORS.no_critical_section_lock_mut() };
     if motors.timer2.events_compare[3].read().bits() != 0 {
@@ -250,10 +252,12 @@ unsafe fn TIMER2() {
             motors.timer2.cc[1].write(|w| w.bits(u32::from(1000 + motors.motor_values[3])));
         }
     }
+    let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_20.into_push_pull_output(Level::Low) };
 }
 
 #[interrupt]
 unsafe fn TIMER1() {
+    let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_20.into_push_pull_output(Level::High) };
     // Safety: interrupts are already turned off here, since we are inside an interrupt
     let motors = unsafe { MOTORS.no_critical_section_lock_mut() };
     if motors.timer1.events_compare[3].read().bits() != 0 {
@@ -266,4 +270,5 @@ unsafe fn TIMER1() {
             motors.timer1.cc[1].write(|w| w.bits(u32::from(1000 + motors.motor_values[1])));
         }
     }
+    let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_20.into_push_pull_output(Level::Low) };
 }

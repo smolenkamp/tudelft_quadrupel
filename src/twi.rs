@@ -3,7 +3,7 @@ use crate::once_cell::OnceCell;
 use core::sync::atomic::{AtomicBool, Ordering};
 use cortex_m::peripheral::NVIC;
 use nrf51_hal::gpio::p0::{P0_02, P0_04};
-use nrf51_hal::gpio::{Disconnected, Pin};
+use nrf51_hal::gpio::{Disconnected, Level, Pin};
 use nrf51_hal::twi::Error;
 use nrf51_pac::interrupt;
 use nrf51_pac::twi0::frequency::FREQUENCY_A;
@@ -126,8 +126,10 @@ impl embedded_hal::blocking::i2c::WriteRead for TwiWrapper {
             // If we want to read multiple bytes we need to use the suspend mode.
             if !before.is_empty() {
                 self.twi.shorts.write(|w| w.bb_suspend().enabled());
+                let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_08.into_push_pull_output(Level::Low) };
             } else {
                 self.twi.shorts.write(|w| w.bb_stop().enabled());
+                let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_08.into_push_pull_output(Level::High) };
             }
 
             // Start data reception.
@@ -139,11 +141,13 @@ impl embedded_hal::blocking::i2c::WriteRead for TwiWrapper {
             }
 
             self.twi.shorts.write(|w| w.bb_stop().enabled());
+            let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_08.into_push_pull_output(Level::High) };
             self.twi.tasks_resume.write(|w| unsafe { w.bits(1) });
             *last = self.recv_byte()?;
         } else {
             self.send_stop()?;
         }
+        let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_08.into_push_pull_output(Level::Low) };
         Ok(())
     }
 }
@@ -230,6 +234,8 @@ pub(crate) fn initialize(
 
 #[interrupt]
 unsafe fn SPI0_TWI0() {
+    let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_19.into_push_pull_output(Level::High) };
+
     // Safety: interrupts are already turned off here, since we are inside an interrupt
     // We might be accessing the hardware while the interrupted code also wants to, this is fine since we're only touching the EVENT registers which are not touched by the other code
     let twi = unsafe { TWI.no_critical_section_lock_mut() };
@@ -254,4 +260,7 @@ unsafe fn SPI0_TWI0() {
             .write(|w| w.anack().clear_bit().overrun().clear_bit()); // Clear error source
         twi.twi.events_error.reset();
     }
+
+    let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_19.into_push_pull_output(Level::Low) };
+
 }

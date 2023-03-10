@@ -3,6 +3,7 @@
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
 use cortex_m::peripheral::NVIC;
+use nrf51_hal::gpio::Level;
 use nrf51_pac::interrupt;
 use nrf51_pac::Interrupt;
 
@@ -46,11 +47,13 @@ pub(crate) fn initialize(adc: nrf51_pac::ADC, nvic: &mut NVIC) {
 
 #[interrupt]
 unsafe fn ADC() {
+    let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_20.into_push_pull_output(Level::High) };
     ADC_STATE.modify(|adc| {
         adc.adc.events_end.reset();
         // Battery voltage = (result*1.2*3/255*2) = RESULT*0.007058824
         adc.last_result = adc.adc.result.read().result().bits() * 7;
-    })
+    });
+    let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_20.into_push_pull_output(Level::Low) };
 }
 
 /// Returns the battery voltage in 10^-2 volt.
