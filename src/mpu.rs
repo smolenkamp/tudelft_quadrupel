@@ -6,6 +6,7 @@ use crate::once_cell::OnceCell;
 use crate::twi::{TwiWrapper, TWI};
 use nb::Error::WouldBlock;
 use structs::{Accel, Gyro, Quaternion};
+use crate::uart::send_bytes;
 
 #[allow(unused)]
 mod config;
@@ -111,6 +112,10 @@ pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<TwiWrapper>> {
     // If there isn't a full packet ready, return none
     let mut len = mpu.mpu.get_fifo_count(twi)?;
     if len < 28 {
+        return Err(WouldBlock);
+    }
+    if len > 28 * 5 {
+        mpu.mpu.reset_fifo(twi)?;
         return Err(WouldBlock);
     }
 
