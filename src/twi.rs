@@ -126,8 +126,10 @@ impl embedded_hal::blocking::i2c::WriteRead for TwiWrapper {
             // If we want to read multiple bytes we need to use the suspend mode.
             if !before.is_empty() {
                 self.twi.shorts.write(|w| w.bb_suspend().enabled());
+                let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_08.into_push_pull_output(Level::Low) };
             } else {
                 self.twi.shorts.write(|w| w.bb_stop().enabled());
+                let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_08.into_push_pull_output(Level::High) };
             }
 
             // Start data reception.
@@ -139,11 +141,13 @@ impl embedded_hal::blocking::i2c::WriteRead for TwiWrapper {
             }
 
             self.twi.shorts.write(|w| w.bb_stop().enabled());
+            let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_08.into_push_pull_output(Level::High) };
             self.twi.tasks_resume.write(|w| unsafe { w.bits(1) });
             *last = self.recv_byte()?;
         } else {
             self.send_stop()?;
         }
+        let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_08.into_push_pull_output(Level::Low) };
         Ok(())
     }
 }
