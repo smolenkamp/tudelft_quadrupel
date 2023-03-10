@@ -6,6 +6,7 @@ use crate::once_cell::OnceCell;
 use crate::twi::{TwiWrapper, TWI};
 use nb::Error::WouldBlock;
 use structs::{Accel, Gyro, Quaternion};
+use crate::led::Red;
 
 #[allow(unused)]
 mod config;
@@ -111,6 +112,17 @@ pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<TwiWrapper>> {
     // If there isn't a full packet ready, return none
     let mut len = mpu.mpu.get_fifo_count(twi)?;
     if len < 28 {
+        return Err(WouldBlock);
+    }
+
+    // If we got mis-aligned, we skip a packet
+    if len % 28 != 0 {
+        let skip = 28 - len % 28;
+        let mut buf = [0; 28];
+
+        let _ = Red.toggle();
+
+        let _ = mpu.mpu.read_fifo(twi, &mut buf[..skip])?;
         return Err(WouldBlock);
     }
 
