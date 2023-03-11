@@ -1,16 +1,15 @@
 use crate::mpu::config::DigitalLowPassFilter;
-use crate::mpu::error::Error;
 use crate::mpu::sensor::Mpu6050;
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
 use crate::twi::{TwiWrapper, TWI};
 use nb::Error::WouldBlock;
 use structs::{Accel, Gyro, Quaternion};
+use error::Error;
 
 #[allow(unused)]
 mod config;
 mod dmp_firmware;
-mod error;
 mod firmware_loader;
 #[allow(unused)]
 mod registers;
@@ -19,13 +18,18 @@ mod sensor;
 /// structs to deal with mpu output, like quaternions
 pub mod structs;
 
+mod error;
+
 /// MPU Sample Rate Divider under DMP mode
 pub const SAMPLE_RATE_DIVIDER_MPU: u8 = 0;
 /// MPU Sample Rate Divider under RAW mode
 pub const SAMPLE_RATE_DIVIDER_RAW: u8 = 0;
 
+
+type I2c = TwiWrapper;
+
 struct Mpu {
-    mpu: Mpu6050<TwiWrapper>,
+    mpu: Mpu6050,
     dmp_enabled: bool,
 }
 
@@ -35,14 +39,12 @@ pub(crate) fn initialize() {
     // Safety: The TWI mutex is not accessed in an interrupt
     let twi = unsafe { TWI.no_critical_section_lock_mut() };
 
-    let mut mpu: Mpu6050<TwiWrapper> = Mpu6050::new(&mut **twi).unwrap();
+    let mut mpu = Mpu6050::new(twi);
 
-    mpu.initialize_dmp(twi).unwrap();
+    mpu.initialize_dmp(twi);
 
-    mpu.set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_MPU)
-        .unwrap();
-    mpu.set_digital_lowpass_filter(twi, DigitalLowPassFilter::Filter5)
-        .unwrap();
+    mpu.set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_MPU);
+    mpu.set_digital_lowpass_filter(twi, DigitalLowPassFilter::Filter5);
     MPU.modify(|m| {
         m.initialize(Mpu {
             mpu,
@@ -67,10 +69,9 @@ pub fn disable_dmp() {
     let mpu = unsafe { MPU.no_critical_section_lock_mut() };
 
     mpu.mpu
-        .set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_RAW)
-        .unwrap();
-    mpu.mpu.disable_dmp(twi).unwrap();
-    mpu.mpu.disable_fifo(twi).unwrap();
+        .set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_RAW);
+    mpu.mpu.disable_dmp(twi);
+    mpu.mpu.disable_fifo(twi);
     mpu.dmp_enabled = false;
 }
 
@@ -78,18 +79,16 @@ pub fn disable_dmp() {
 ///
 /// # Errors
 /// when the global constant `SAMPLE_RATE_DIVIDER_MPU` is wrong (i.e. will not panic under normal conditions)
-pub fn enable_dmp() -> Result<(), Error<TwiWrapper>> {
+pub fn enable_dmp() {
     // Safety: The TWI and MPU mutexes are not accessed in an interrupt
     let twi = unsafe { TWI.no_critical_section_lock_mut() };
     let mpu = unsafe { MPU.no_critical_section_lock_mut() };
 
     mpu.mpu
-        .set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_MPU)?;
-    mpu.mpu.enable_dmp(twi)?;
-    mpu.mpu.enable_fifo(twi)?;
+        .set_sample_rate_divider(twi, SAMPLE_RATE_DIVIDER_MPU);
+    mpu.mpu.enable_dmp(twi);
+    mpu.mpu.enable_fifo(twi);
     mpu.dmp_enabled = true;
-
-    Ok(())
 }
 
 /// This reads the most recent angle from the DMP, if there are any new ones available.
@@ -101,7 +100,7 @@ pub fn enable_dmp() -> Result<(), Error<TwiWrapper>> {
 ///
 /// # Errors
 /// when a TWI(I2C) operation failed
-pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<TwiWrapper>> {
+pub fn read_dmp_bytes() -> nb::Result<Quaternion, ()> {
     // Safety: The TWI and MPU mutexes are not accessed in an interrupt
     let twi = unsafe { TWI.no_critical_section_lock_mut() };
     let mpu = unsafe { MPU.no_critical_section_lock_mut() };
@@ -109,28 +108,28 @@ pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<TwiWrapper>> {
     assert!(mpu.dmp_enabled);
 
     // If there isn't a full packet ready, return none
-    let mut len = mpu.mpu.get_fifo_count(twi)?;
+    let mut len = mpu.mpu.get_fifo_count(twi);
     if len < 28 {
         return Err(WouldBlock);
     }
-    if len > 28 * 5 {
-        mpu.mpu.reset_fifo(twi)?;
-        return Err(WouldBlock);
-    }
+    // if len > 28 * 5 {
+    //     mpu.mpu.reset_fifo(twi)?;
+    //     return Err(WouldBlock);
+    // }
 
     // If we got mis-aligned, we skip a packet
     if len % 28 != 0 {
         let skip = len % 28;
         let mut buf = [0; 28];
 
-        let _ = mpu.mpu.read_fifo(twi, &mut buf[..skip])?;
+        let _ = mpu.mpu.read_fifo(twi, &mut buf[..skip]);
         return Err(WouldBlock);
     }
 
     // Keep reading while there are more full packets
     let mut buf = [0; 28];
     while len >= 28 {
-        let _ = mpu.mpu.read_fifo(twi, &mut buf)?;
+        let _ = mpu.mpu.read_fifo(twi, &mut buf);
         len -= 28;
     }
 
@@ -143,13 +142,13 @@ pub fn read_dmp_bytes() -> nb::Result<Quaternion, Error<TwiWrapper>> {
 ///
 /// # Errors
 /// when a TWI operation failed
-pub fn read_raw() -> Result<(Accel, Gyro), Error<TwiWrapper>> {
+pub fn read_raw() -> Result<(Accel, Gyro), Error> {
     // Safety: The TWI and MPU mutexes are not accessed in an interrupt
     let twi = unsafe { TWI.no_critical_section_lock_mut() };
     let mpu = unsafe { MPU.no_critical_section_lock_mut() };
 
-    let accel = mpu.mpu.accel(twi)?;
-    let gyro = mpu.mpu.gyro(twi)?;
+    let accel = mpu.mpu.accel(twi);
+    let gyro = mpu.mpu.gyro(twi);
 
     Ok((accel, gyro))
 }

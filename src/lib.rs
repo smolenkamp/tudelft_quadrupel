@@ -1,7 +1,7 @@
 #![no_std]
 #![feature(strict_provenance)]
 #![deny(missing_docs)]
-#![deny(warnings)]
+// #![deny(warnings)]
 #![deny(unused_import_braces)]
 #![deny(unused_results)]
 #![deny(trivial_casts)]

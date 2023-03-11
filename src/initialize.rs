@@ -13,7 +13,7 @@ static INITIALIZED: Mutex<bool> = Mutex::new(false);
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
 /// Initialize the drone board. This should be run at boot.
-///
+//t/
 /// `heap_memory` should be a pointer to statically allocated memory.
 /// Care should be taken that the mutable reference given here *really* is the
 /// only mutable reference to that area of memory. That should of course be guaranteed by

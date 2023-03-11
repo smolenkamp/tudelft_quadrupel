@@ -3,9 +3,6 @@ use crate::once_cell::OnceCell;
 use crate::time::Instant;
 use crate::twi::TWI;
 use core::time::Duration;
-use embedded_hal::prelude::{
-    _embedded_hal_blocking_i2c_Write, _embedded_hal_blocking_i2c_WriteRead,
-};
 
 const MS5611_ADDR: u8 = 0b0111_0111;
 const REG_READ: u8 = 0x0;
@@ -88,8 +85,7 @@ pub(crate) fn initialize() {
     let mut prom = [0; 8];
     let mut data = [0u8; 2];
     for c in 0..8 {
-        twi.write_read(MS5611_ADDR, &[REG_PROM + 2 * c], &mut data)
-            .unwrap();
+        _ = twi.read(MS5611_ADDR, REG_PROM + 2 * c, &mut data);
         prom[c as usize] = u16::from_be_bytes(data);
     }
 
@@ -105,8 +101,8 @@ pub(crate) fn initialize() {
             loop_state: Ms5611LoopState::Reset,
             most_recent_pressure: 0,
             most_recent_temperature: 0,
-        })
-    })
+        });
+    });
 }
 
 fn update() {
@@ -119,11 +115,11 @@ fn update() {
     match baro.loop_state {
         Ms5611LoopState::Reset => {
             //We let the chip know we want to read D1.
-            twi.write(
+            _ = twi.write(
                 MS5611_ADDR,
-                &[REG_D1 + baro.over_sampling_ratio.addr_modifier()],
-            )
-            .unwrap();
+                REG_D1 + baro.over_sampling_ratio.addr_modifier(),
+                &[]
+            );
 
             //Then set loop state for next iteration
             baro.loop_state = Ms5611LoopState::ReadD1 {
@@ -138,16 +134,15 @@ fn update() {
 
             //Read D1
             let mut buf = [0u8; 4];
-            twi.write_read(MS5611_ADDR, &[REG_READ], &mut buf[1..4])
-                .unwrap();
+            _ = twi.read(MS5611_ADDR, REG_READ, &mut buf[1..4]);
             let d1 = u32::from_be_bytes(buf);
 
             //We let the chip know we want to read D2.
-            twi.write(
+            _ = twi.write(
                 MS5611_ADDR,
-                &[REG_D2 + baro.over_sampling_ratio.addr_modifier()],
-            )
-            .unwrap();
+                REG_D2 + baro.over_sampling_ratio.addr_modifier(),
+                &[]
+            );
 
             //Then set loop state for next iteration
             baro.loop_state = Ms5611LoopState::ReadD2 {
@@ -163,8 +158,7 @@ fn update() {
 
             //Read D2
             let mut buf = [0u8; 4];
-            twi.write_read(MS5611_ADDR, &[REG_READ], &mut buf[1..4])
-                .unwrap();
+            _ = twi.read(MS5611_ADDR, REG_READ, &mut buf[1..4]);
             let d1 = u64::from(d1);
             let d2 = u64::from(u32::from_be_bytes(buf));
 

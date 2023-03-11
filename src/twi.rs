@@ -4,7 +4,6 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use cortex_m::peripheral::NVIC;
 use nrf51_hal::gpio::p0::{P0_02, P0_04};
 use nrf51_hal::gpio::{Disconnected, Level, Pin};
-use nrf51_hal::twi::Error;
 use nrf51_pac::interrupt;
 use nrf51_pac::twi0::frequency::FREQUENCY_A;
 use nrf51_pac::{Interrupt, GPIO, TWI0};
@@ -16,139 +15,114 @@ pub(crate) static TWI: Mutex<OnceCell<TwiWrapper>> = Mutex::new(OnceCell::uninit
 pub struct TwiWrapper {
     twi: TWI0,
     sent: AtomicBool,
-    rec: AtomicBool,
-    stopped: AtomicBool,
+    recv: AtomicBool,
 }
 
-impl embedded_hal::blocking::i2c::Write for TwiWrapper {
-    type Error = Error;
-
-    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
-        if bytes.is_empty() {
-            return Ok(());
-        }
-
-        self.send_without_stop(addr, bytes)?;
-
-        // Send stop.
-        self.send_stop()?;
-        Ok(())
-    }
+pub enum TwiStatus {
+    BufEmpty,
+    Success
 }
 
 impl TwiWrapper {
-    fn send_byte(&self, byte: u8) -> Result<(), Error> {
-        // Copy data into the send buffer.
-        self.twi.txd.write(|w| unsafe { w.bits(u32::from(byte)) });
-
-        // Wait until transmission was confirmed.
-        while !self.sent.load(Ordering::SeqCst) {
-            core::hint::spin_loop();
-        }
-        self.sent.store(false, Ordering::SeqCst);
-
-        Ok(())
+    fn set_sent_flag(&self, value: bool) {
+        self.sent.store(value, Ordering::SeqCst)
     }
 
-    fn recv_byte(&self) -> Result<u8, Error> {
-        // Wait until something ended up in the buffer.
-        while !self.rec.load(Ordering::SeqCst) {
-            core::hint::spin_loop();
-        }
-        self.rec.store(false, Ordering::SeqCst);
-
-        // Read out data.
-        let out = self.twi.rxd.read().bits() as u8;
-
-        Ok(out)
+    fn set_recv_flag(&self, value: bool) {
+        self.recv.store(value, Ordering::SeqCst)
     }
 
-    fn send_stop(&self) -> Result<(), Error> {
-        // Start stop condition.
-        self.twi.tasks_stop.write(|w| unsafe { w.bits(1) });
-
-        // Wait until stop was sent.
-        while !self.stopped.load(Ordering::SeqCst) {
+    fn wait(&self, flag: &AtomicBool) {
+        while !flag.load(Ordering::SeqCst) {
             core::hint::spin_loop();
         }
-        self.stopped.store(false, Ordering::SeqCst);
-
-        Ok(())
     }
 
-    fn send_without_stop(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
-        // Set Slave I2C address.
-        self.twi
-            .address
-            .write(|w| unsafe { w.address().bits(addr) });
+    fn wait_sent(&self) {
+        self.wait(&self.sent)
+    }
 
-        // Make sure all previously used shortcuts are disabled.
+    fn wait_recv(&self) {
+        self.wait(&self.recv)
+    }
+
+    pub fn read(&self, addr: u8, reg_addr: u8, data: &mut [u8]) -> TwiStatus {
+        if data.is_empty() {
+            return TwiStatus::BufEmpty;
+        }
+
+        self.set_sent_flag(false);
+        self.set_recv_flag(false);
+
+        self.twi.address.write(|w| unsafe{w.address().bits(addr)});
+        self.twi.txd.write(|w| unsafe{w.txd().bits(reg_addr)});
         self.twi.shorts.reset();
+        self.twi.tasks_starttx.write(|w| unsafe{w.bits(1)});
 
-        self.sent.store(false, Ordering::SeqCst);
+        self.wait_sent();
+        self.set_sent_flag(false);
 
-        self.twi
-            .txd
-            .write(|w| unsafe { w.bits(u32::from(bytes[0])) });
-
-        // Start data transmission.
-        self.twi.tasks_starttx.write(|w| unsafe { w.bits(1) });
-
-        while !self.sent.load(Ordering::SeqCst) {
-            core::hint::spin_loop();
-        }
-        self.sent.store(false, Ordering::SeqCst);
-
-        // Clock out all bytes.
-        for &byte in &bytes[1..] {
-            self.send_byte(byte)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl embedded_hal::blocking::i2c::WriteRead for TwiWrapper {
-    type Error = Error;
-
-    fn write_read<'w>(
-        &mut self,
-        addr: u8,
-        bytes: &'w [u8],
-        buffer: &'w mut [u8],
-    ) -> Result<(), Error> {
-        if !bytes.is_empty() {
-            self.send_without_stop(addr, bytes)?;
-        }
-
-        // Turn around to read data.
-        if let Some((last, before)) = buffer.split_last_mut() {
-            // If we want to read multiple bytes we need to use the suspend mode.
-            if !before.is_empty() {
-                self.twi.shorts.write(|w| w.bb_suspend().enabled());
-                let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_08.into_push_pull_output(Level::Low) };
-            } else {
-                self.twi.shorts.write(|w| w.bb_stop().enabled());
-                let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_08.into_push_pull_output(Level::High) };
-            }
-
-            // Start data reception.
-            self.twi.tasks_startrx.write(|w| unsafe { w.bits(1) });
-
-            for byte in before.iter_mut() {
-                self.twi.tasks_resume.write(|w| unsafe { w.bits(1) });
-                *byte = self.recv_byte()?;
-            }
-
-            self.twi.shorts.write(|w| w.bb_stop().enabled());
-            let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_08.into_push_pull_output(Level::High) };
-            self.twi.tasks_resume.write(|w| unsafe { w.bits(1) });
-            *last = self.recv_byte()?;
+        if data.len() == 1 {
+            self.twi.shorts.write(|w| w.bb_stop().set_bit())
         } else {
-            self.send_stop()?;
+            self.twi.shorts.write(|w| w.bb_suspend().set_bit())
         }
-        let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_08.into_push_pull_output(Level::Low) };
-        Ok(())
+
+        self.twi.tasks_starttx.write(|w| unsafe{w.bits(1)});
+
+        let mut bytes_left = data.len();
+        let mut write_ptr = 0;
+
+        loop {
+            self.wait_recv();
+            self.set_recv_flag(false);
+
+            data[write_ptr] = self.twi.rxd.read().rxd().bits();
+            write_ptr += 1;
+
+            bytes_left -= 1;
+            if bytes_left == 1 {
+                self.twi.shorts.write(|w| w.bb_stop().set_bit())
+            }
+            self.twi.tasks_resume.write(|w| unsafe{w.bits(1)});
+
+            if bytes_left == 0 {
+                break;
+            }
+        }
+
+        TwiStatus::Success
+    }
+
+    pub fn write(&self, addr: u8, reg_addr: u8, data: &[u8]) {
+        if data.is_empty() {
+            self.twi.address.write(|w| unsafe{w.address().bits(addr)});
+            self.twi.shorts.write(|w| w.bb_stop().set_bit());
+            self.twi.txd.write(|w| unsafe{w.txd().bits(reg_addr)});
+            self.twi.tasks_starttx.write(|w| unsafe{w.bits(1)});
+            self.wait_sent();
+
+            return;
+        }
+
+        self.set_sent_flag(false);
+
+        self.twi.address.write(|w| unsafe{w.address().bits(addr)});
+        self.twi.shorts.reset();
+        self.twi.txd.write(|w| unsafe{w.txd().bits(reg_addr)});
+        self.twi.tasks_starttx.write(|w| unsafe{w.bits(1)});
+
+        self.wait_sent();
+        self.set_sent_flag(false);
+
+        for &i in data {
+            self.twi.txd.write(|w| unsafe{w.txd().bits(i)});
+
+            self.wait_sent();
+            self.set_sent_flag(false);
+        }
+
+        self.twi.tasks_stop.write(|w| unsafe {w.bits(1)});
     }
 }
 
@@ -217,9 +191,8 @@ pub(crate) fn initialize(
     TWI.modify(|t| {
         t.initialize(TwiWrapper {
             twi,
-            rec: false.into(),
+            recv: false.into(),
             sent: false.into(),
-            stopped: false.into(),
         })
     });
 
@@ -242,15 +215,11 @@ unsafe fn SPI0_TWI0() {
 
     if twi.twi.events_rxdready.read().bits() != 0 {
         twi.twi.events_rxdready.reset();
-        twi.rec.store(true, Ordering::SeqCst);
+        twi.recv.store(true, Ordering::SeqCst);
     }
     if twi.twi.events_txdsent.read().bits() != 0 {
         twi.twi.events_txdsent.reset();
         twi.sent.store(true, Ordering::SeqCst);
-    }
-    if twi.twi.events_stopped.read().bits() != 0 {
-        twi.twi.events_stopped.reset();
-        twi.stopped.store(true, Ordering::SeqCst);
     }
 
     // Errors are silently ignored
