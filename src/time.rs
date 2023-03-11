@@ -10,7 +10,6 @@ use crate::once_cell::OnceCell;
 /// and hard to convert to an exact number of seconds
 pub use cortex_m::asm::delay as assembly_delay;
 use cortex_m::peripheral::NVIC;
-use nrf51_hal::gpio::Level;
 use nrf51_hal::rtc::{RtcCompareReg, RtcInterrupt};
 use nrf51_hal::Rtc;
 use nrf51_pac::RTC0;
@@ -156,8 +155,6 @@ fn counter_diff(prev: u32, curr: u32) -> u32 {
 
 #[interrupt]
 unsafe fn RTC0() {
-    let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_20.into_push_pull_output(Level::High) };
-
     // SAFETY: we're in an interrupt so this code cannot be run concurrently anyway
     let rtc = RTC.no_critical_section_lock_mut();
     // SAFETY: we're in an interrupt so this code cannot be run concurrently anyway
@@ -180,9 +177,6 @@ unsafe fn RTC0() {
         rtc.reset_event(RtcInterrupt::Compare0);
         TIMER_FLAG.store(true, Ordering::SeqCst);
     }
-
-    let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_20.into_push_pull_output(Level::Low) };
-
 }
 
 /// Wait for the next interrupt configured by `set_interrupt_frequency`.

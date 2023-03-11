@@ -1,17 +1,16 @@
+use crate::led::Green;
 use crate::mpu::config::Fifo;
 use crate::mpu::config::GyroFullScale;
 use crate::mpu::config::{AccelFullScale, ClockSource, DigitalLowPassFilter};
 use crate::mpu::registers::Register;
 use crate::mpu::structs::{Accel, Gyro};
 use crate::time::delay_ms_assembly;
+use crate::twi::TwiWrapper;
 use core::marker::PhantomData;
 use core::time::Duration;
 use embedded_hal::blocking::i2c::{Write, WriteRead};
-use crate::led::Green;
-use crate::twi::TwiWrapper;
 
 const MPU6050_ADDRESS: u8 = 0x68;
-
 
 pub type I2c = TwiWrapper;
 
@@ -48,17 +47,12 @@ impl Mpu6050 {
         self.enable_dmp(i2c);
     }
 
-    pub(crate) fn read(
-        &mut self,
-        i2c: &mut I2c,
-        reg: u8,
-        response: &mut [u8],
-    ) {
+    pub(crate) fn read(&mut self, i2c: &mut I2c, reg: u8, response: &mut [u8]) {
         let _ = i2c.read(MPU6050_ADDRESS, reg, response);
     }
 
     pub(crate) fn write(&mut self, i2c: &mut I2c, reg_address: u8, bytes: &[u8]) {
-        let _ = i2c.write(MPU6050_ADDRESS, reg_address, bytes);
+        i2c.write(MPU6050_ADDRESS, reg_address, bytes);
     }
 
     pub(crate) fn read_register(&mut self, i2c: &mut I2c, reg: Register) -> u8 {
@@ -77,12 +71,7 @@ impl Mpu6050 {
         buf
     }
 
-    pub(crate) fn write_register(
-        &mut self,
-        i2c: &mut I2c,
-        reg: Register,
-        value: u8,
-    ) {
+    pub(crate) fn write_register(&mut self, i2c: &mut I2c, reg: Register, value: u8) {
         self.write(i2c, reg as u8, &[value]);
     }
 
@@ -106,11 +95,7 @@ impl Mpu6050 {
     }
 
     /// Pick the clock-source
-    pub fn set_clock_source(
-        &mut self,
-        i2c: &mut I2c,
-        clock_source: ClockSource,
-    ) {
+    pub fn set_clock_source(&mut self, i2c: &mut I2c, clock_source: ClockSource) {
         let mut value = self.read_register(i2c, Register::PwrMgmt1);
         value |= clock_source as u8;
         self.write_register(i2c, Register::PwrMgmt1, value);
@@ -120,21 +105,13 @@ impl Mpu6050 {
         self.write_register(i2c, Register::IntEnable, 0x00)
     }
 
-    pub fn set_accel_full_scale(
-        &mut self,
-        i2c: &mut I2c,
-        scale: AccelFullScale,
-    ) {
+    pub fn set_accel_full_scale(&mut self, i2c: &mut I2c, scale: AccelFullScale) {
         let mut value = self.read_register(i2c, Register::AccelConfig);
         value |= (scale as u8) << 3;
         self.write_register(i2c, Register::AccelConfig, value)
     }
 
-    pub fn set_gyro_full_scale(
-        &mut self,
-        i2c: &mut I2c,
-        scale: GyroFullScale,
-    ) {
+    pub fn set_gyro_full_scale(&mut self, i2c: &mut I2c, scale: GyroFullScale) {
         let mut value = self.read_register(i2c, Register::GyroConfig);
         value |= (scale as u8) << 3;
         self.write_register(i2c, Register::GyroConfig, value)
@@ -144,11 +121,7 @@ impl Mpu6050 {
         self.write_register(i2c, Register::SmpRtDiv, div)
     }
 
-    pub fn set_digital_lowpass_filter(
-        &mut self,
-        i2c: &mut I2c,
-        filter: DigitalLowPassFilter,
-    ) {
+    pub fn set_digital_lowpass_filter(&mut self, i2c: &mut I2c, filter: DigitalLowPassFilter) {
         let mut value = self.read_register(i2c, Register::Config);
         value |= filter as u8;
         self.write_register(i2c, Register::Config, value)
@@ -195,11 +168,7 @@ impl Mpu6050 {
     }
 
     /// Read the FIFO
-    pub fn read_fifo<'a>(
-        &mut self,
-        i2c: &mut I2c,
-        buf: &'a mut [u8],
-    ) -> &'a [u8] {
+    pub fn read_fifo<'a>(&mut self, i2c: &mut I2c, buf: &'a mut [u8]) -> &'a [u8] {
         self.read_registers(i2c, Register::FifoRw, &mut buf[..])
     }
 

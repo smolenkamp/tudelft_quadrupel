@@ -12,7 +12,7 @@ impl Mpu6050 {
     }
 
     pub fn boot_firmware(&mut self, i2c: &mut I2c) {
-        self.write(i2c, Register::PrgmStart as u8, &[ 0x04, 0x00]);
+        self.write(i2c, Register::PrgmStart as u8, &[0x04, 0x00]);
     }
 
     fn write_memory(&mut self, i2c: &mut I2c, data: &[u8]) {

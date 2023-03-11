@@ -3,9 +3,9 @@ use crate::mpu::sensor::Mpu6050;
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
 use crate::twi::{TwiWrapper, TWI};
+use error::Error;
 use nb::Error::WouldBlock;
 use structs::{Accel, Gyro, Quaternion};
-use error::Error;
 
 #[allow(unused)]
 mod config;
@@ -24,7 +24,6 @@ mod error;
 pub const SAMPLE_RATE_DIVIDER_MPU: u8 = 0;
 /// MPU Sample Rate Divider under RAW mode
 pub const SAMPLE_RATE_DIVIDER_RAW: u8 = 0;
-
 
 type I2c = TwiWrapper;
 
@@ -112,10 +111,6 @@ pub fn read_dmp_bytes() -> nb::Result<Quaternion, ()> {
     if len < 28 {
         return Err(WouldBlock);
     }
-    // if len > 28 * 5 {
-    //     mpu.mpu.reset_fifo(twi)?;
-    //     return Err(WouldBlock);
-    // }
 
     // If we got mis-aligned, we skip a packet
     if len % 28 != 0 {

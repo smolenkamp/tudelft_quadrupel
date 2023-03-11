@@ -115,10 +115,10 @@ fn update() {
     match baro.loop_state {
         Ms5611LoopState::Reset => {
             //We let the chip know we want to read D1.
-            _ = twi.write(
+            twi.write(
                 MS5611_ADDR,
                 REG_D1 + baro.over_sampling_ratio.addr_modifier(),
-                &[]
+                &[],
             );
 
             //Then set loop state for next iteration
@@ -138,10 +138,10 @@ fn update() {
             let d1 = u32::from_be_bytes(buf);
 
             //We let the chip know we want to read D2.
-            _ = twi.write(
+            twi.write(
                 MS5611_ADDR,
                 REG_D2 + baro.over_sampling_ratio.addr_modifier(),
-                &[]
+                &[],
             );
 
             //Then set loop state for next iteration

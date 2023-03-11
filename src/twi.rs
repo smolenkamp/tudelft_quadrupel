@@ -20,7 +20,7 @@ pub struct TwiWrapper {
 
 pub enum TwiStatus {
     BufEmpty,
-    Success
+    Success,
 }
 
 impl TwiWrapper {
@@ -54,10 +54,12 @@ impl TwiWrapper {
         self.set_sent_flag(false);
         self.set_recv_flag(false);
 
-        self.twi.address.write(|w| unsafe{w.address().bits(addr)});
-        self.twi.txd.write(|w| unsafe{w.txd().bits(reg_addr)});
+        self.twi
+            .address
+            .write(|w| unsafe { w.address().bits(addr) });
+        self.twi.txd.write(|w| unsafe { w.txd().bits(reg_addr) });
         self.twi.shorts.reset();
-        self.twi.tasks_starttx.write(|w| unsafe{w.bits(1)});
+        self.twi.tasks_starttx.write(|w| unsafe { w.bits(1) });
 
         self.wait_sent();
         self.set_sent_flag(false);
@@ -68,7 +70,7 @@ impl TwiWrapper {
             self.twi.shorts.write(|w| w.bb_suspend().set_bit())
         }
 
-        self.twi.tasks_startrx.write(|w| unsafe{w.bits(1)});
+        self.twi.tasks_startrx.write(|w| unsafe { w.bits(1) });
 
         let mut bytes_left = data.len();
         let mut write_ptr = 0;
@@ -84,7 +86,7 @@ impl TwiWrapper {
             if bytes_left == 1 {
                 self.twi.shorts.write(|w| w.bb_stop().set_bit())
             }
-            self.twi.tasks_resume.write(|w| unsafe{w.bits(1)});
+            self.twi.tasks_resume.write(|w| unsafe { w.bits(1) });
 
             if bytes_left == 0 {
                 break;
@@ -96,10 +98,12 @@ impl TwiWrapper {
 
     pub fn write(&self, addr: u8, reg_addr: u8, data: &[u8]) {
         if data.is_empty() {
-            self.twi.address.write(|w| unsafe{w.address().bits(addr)});
+            self.twi
+                .address
+                .write(|w| unsafe { w.address().bits(addr) });
             self.twi.shorts.write(|w| w.bb_stop().set_bit());
-            self.twi.txd.write(|w| unsafe{w.txd().bits(reg_addr)});
-            self.twi.tasks_starttx.write(|w| unsafe{w.bits(1)});
+            self.twi.txd.write(|w| unsafe { w.txd().bits(reg_addr) });
+            self.twi.tasks_starttx.write(|w| unsafe { w.bits(1) });
             self.wait_sent();
 
             return;
@@ -107,22 +111,24 @@ impl TwiWrapper {
 
         self.set_sent_flag(false);
 
-        self.twi.address.write(|w| unsafe{w.address().bits(addr)});
+        self.twi
+            .address
+            .write(|w| unsafe { w.address().bits(addr) });
         self.twi.shorts.reset();
-        self.twi.txd.write(|w| unsafe{w.txd().bits(reg_addr)});
-        self.twi.tasks_starttx.write(|w| unsafe{w.bits(1)});
+        self.twi.txd.write(|w| unsafe { w.txd().bits(reg_addr) });
+        self.twi.tasks_starttx.write(|w| unsafe { w.bits(1) });
 
         self.wait_sent();
         self.set_sent_flag(false);
 
         for &i in data {
-            self.twi.txd.write(|w| unsafe{w.txd().bits(i)});
+            self.twi.txd.write(|w| unsafe { w.txd().bits(i) });
 
             self.wait_sent();
             self.set_sent_flag(false);
         }
 
-        self.twi.tasks_stop.write(|w| unsafe {w.bits(1)});
+        self.twi.tasks_stop.write(|w| unsafe { w.bits(1) });
     }
 }
 
@@ -172,14 +178,8 @@ pub(crate) fn initialize(
     twi.frequency.write(|w| w.frequency().variant(FREQ));
 
     // Set which interrupts we want to receive
-    twi.intenset.write(|w| {
-        w.txdsent()
-            .set_bit()
-            .rxdready()
-            .set_bit()
-            .error()
-            .set_bit()
-    });
+    twi.intenset
+        .write(|w| w.txdsent().set_bit().rxdready().set_bit().error().set_bit());
 
     twi.shorts.reset();
     twi.enable.write(|w| w.enable().enabled());

@@ -1,7 +1,6 @@
 use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
 use cortex_m::peripheral::NVIC;
-use nrf51_hal::gpio::Level;
 use nrf51_pac::interrupt;
 use ringbuffer::{ConstGenericRingBuffer, RingBuffer, RingBufferRead, RingBufferWrite};
 
@@ -118,8 +117,6 @@ fn put_byte(uart: &mut OnceCell<UartDriver>, byte: u8) {
 /// Interrupt handler for UART0
 /// It's called when the enabled interrupts for uart0 are triggered
 unsafe fn UART0() {
-    let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_20.into_push_pull_output(Level::High) };
-
     // Safety: interrupts are already turned off here, since we are inside an interrupt
     let uart = unsafe { UART.no_critical_section_lock_mut() };
 
@@ -141,6 +138,4 @@ unsafe fn UART0() {
     if uart.uart.events_error.read().bits() != 0 {
         uart.uart.events_error.reset();
     }
-
-    let _ = unsafe { nrf51_hal::gpio::p0::Parts::new(nrf51_pac::Peripherals::steal().GPIO).p0_20.into_push_pull_output(Level::Low) };
 }
