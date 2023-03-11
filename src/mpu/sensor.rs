@@ -7,6 +7,7 @@ use crate::time::delay_ms_assembly;
 use core::marker::PhantomData;
 use core::time::Duration;
 use embedded_hal::blocking::i2c::{Write, WriteRead};
+use crate::led::Green;
 use crate::twi::TwiWrapper;
 
 const MPU6050_ADDRESS: u8 = 0x68;
