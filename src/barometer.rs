@@ -3,7 +3,6 @@ use crate::once_cell::OnceCell;
 use crate::time::Instant;
 use crate::twi::TWI;
 use core::time::Duration;
-use embedded_hal::prelude::_embedded_hal_blocking_i2c_WriteRead;
 
 const MS5611_ADDR: u8 = 0b0111_0111;
 const REG_READ: u8 = 0x0;
@@ -80,29 +79,29 @@ struct Ms5611 {
 static BAROMETER: Mutex<OnceCell<Ms5611>> = Mutex::new(OnceCell::uninitialized());
 
 pub(crate) fn initialize() {
-    TWI.modify(|twi| {
-        let mut prom = [0; 8];
-        let mut data = [0u8; 2];
-        for c in 0..8 {
-            twi.write_read(MS5611_ADDR, &[REG_PROM + 2 * c], &mut data)
-                .unwrap();
-            prom[c as usize] = u16::from_be_bytes(data);
-        }
+    // Safety: The TWI mutex is not accessed in an interrupt
+    let twi = unsafe { TWI.no_critical_section_lock_mut() };
 
-        BAROMETER.modify(|baro| {
-            baro.initialize(Ms5611 {
-                pressure_sensitivity: prom[1],
-                pressure_offset: prom[2],
-                temp_coef_pressure_sensitivity: prom[3],
-                temp_coef_pressure_offset: prom[4],
-                temp_ref: prom[5],
-                temp_coef: prom[6],
-                over_sampling_ratio: OverSamplingRatio::Opt4096,
-                loop_state: Ms5611LoopState::Reset,
-                most_recent_pressure: 0,
-                most_recent_temperature: 0,
-            })
-        })
+    let mut prom = [0; 8];
+    let mut data = [0u8; 2];
+    for c in 0..8 {
+        _ = twi.read(MS5611_ADDR, REG_PROM + 2 * c, &mut data);
+        prom[c as usize] = u16::from_be_bytes(data);
+    }
+
+    BAROMETER.modify(|baro| {
+        baro.initialize(Ms5611 {
+            pressure_sensitivity: prom[1],
+            pressure_offset: prom[2],
+            temp_coef_pressure_sensitivity: prom[3],
+            temp_coef_pressure_offset: prom[4],
+            temp_ref: prom[5],
+            temp_coef: prom[6],
+            over_sampling_ratio: OverSamplingRatio::Opt4096,
+            loop_state: Ms5611LoopState::Reset,
+            most_recent_pressure: 0,
+            most_recent_temperature: 0,
+        });
     });
 }
 
@@ -118,9 +117,9 @@ fn update() {
             //We let the chip know we want to read D1.
             twi.write(
                 MS5611_ADDR,
-                &[REG_D1 + baro.over_sampling_ratio.addr_modifier()],
-            )
-            .unwrap();
+                REG_D1 + baro.over_sampling_ratio.addr_modifier(),
+                &[],
+            );
 
             //Then set loop state for next iteration
             baro.loop_state = Ms5611LoopState::ReadD1 {
@@ -135,16 +134,15 @@ fn update() {
 
             //Read D1
             let mut buf = [0u8; 4];
-            twi.write_read(MS5611_ADDR, &[REG_READ], &mut buf[1..4])
-                .unwrap();
+            _ = twi.read(MS5611_ADDR, REG_READ, &mut buf[1..4]);
             let d1 = u32::from_be_bytes(buf);
 
             //We let the chip know we want to read D2.
             twi.write(
                 MS5611_ADDR,
-                &[REG_D2 + baro.over_sampling_ratio.addr_modifier()],
-            )
-            .unwrap();
+                REG_D2 + baro.over_sampling_ratio.addr_modifier(),
+                &[],
+            );
 
             //Then set loop state for next iteration
             baro.loop_state = Ms5611LoopState::ReadD2 {
@@ -160,8 +158,7 @@ fn update() {
 
             //Read D2
             let mut buf = [0u8; 4];
-            twi.write_read(MS5611_ADDR, &[REG_READ], &mut buf[1..4])
-                .unwrap();
+            _ = twi.read(MS5611_ADDR, REG_READ, &mut buf[1..4]);
             let d1 = u64::from(d1);
             let d2 = u64::from(u32::from_be_bytes(buf));
 

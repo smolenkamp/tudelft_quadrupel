@@ -6,13 +6,14 @@ use crate::{barometer, battery, flash, led, motor, mpu, time, twi, uart};
 use alloc_cortex_m::CortexMHeap;
 use core::mem::MaybeUninit;
 use nrf51_pac::Peripherals;
+
 static INITIALIZED: Mutex<bool> = Mutex::new(false);
 
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
 /// Initialize the drone board. This should be run at boot.
-///
+//t/
 /// `heap_memory` should be a pointer to statically allocated memory.
 /// Care should be taken that the mutable reference given here *really* is the
 /// only mutable reference to that area of memory. That should of course be guaranteed by
@@ -62,7 +63,12 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], debug: bool) {
     if debug {
         let _ = send_bytes(b"RTC driver initialized\n");
     }
-    twi::initialize(nrf51_peripherals.TWI0, gpio.p0_04, gpio.p0_02);
+    twi::initialize(
+        nrf51_peripherals.TWI0,
+        gpio.p0_04,
+        gpio.p0_02,
+        &mut cortex_m_peripherals.NVIC,
+    );
     if debug {
         let _ = send_bytes(b"TWI initialized\n");
     }
@@ -97,7 +103,6 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], debug: bool) {
         &mut cortex_m_peripherals.NVIC,
         &mut nrf51_peripherals.PPI,
         &mut nrf51_peripherals.GPIOTE,
-        gpio.p0_20,
     );
     if debug {
         let _ = send_bytes(b"MOTOR driver initialized\n");

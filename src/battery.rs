@@ -50,7 +50,7 @@ unsafe fn ADC() {
         adc.adc.events_end.reset();
         // Battery voltage = (result*1.2*3/255*2) = RESULT*0.007058824
         adc.last_result = adc.adc.result.read().result().bits() * 7;
-    })
+    });
 }
 
 /// Returns the battery voltage in 10^-2 volt.
