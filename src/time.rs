@@ -202,6 +202,7 @@ pub fn wait_for_next_tick() {
 /// Set this timer to interrupt at the given frequency.
 /// The next interrupt will be after 1/hz seconds.
 ///
+/// Call this before using any other time-related functions.
 #[allow(clippy::missing_panics_doc)]
 pub fn set_tick_frequency(hz: u64) {
     RTC.modify(|rtc| {
@@ -218,7 +219,7 @@ pub fn set_tick_frequency(hz: u64) {
     });
 
     // Give the counter time to clear (Section 19.1.8 of the NRF51 reference manual V3)
-    delay_us_assembly(100);
+    delay_us_assembly(500);
 }
 
 /// Delay the program for a time using assembly instructions.
