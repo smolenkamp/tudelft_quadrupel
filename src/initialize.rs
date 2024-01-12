@@ -13,7 +13,7 @@ static INITIALIZED: Mutex<bool> = Mutex::new(false);
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
 /// Initialize the drone board. This should be run at boot.
-//t/
+///
 /// `heap_memory` should be a pointer to statically allocated memory.
 /// Care should be taken that the mutable reference given here *really* is the
 /// only mutable reference to that area of memory. That should of course be guaranteed by
@@ -27,7 +27,10 @@ static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 ///
 /// # Panics
 /// This function will panic when called twice. Make sure this is only called once on boot
-pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], debug: bool) {
+///
+/// # Safety
+/// safe is heap_memory is a valid pointer to memory
+pub unsafe fn initialize(heap_memory: *const [MaybeUninit<u8>], debug: bool) {
     // Allow time for PC to start up. The drone board starts running code immediately after upload,
     // but at that time the PC may not be listening on UART etc.
     assembly_delay(2_500_000);
@@ -42,11 +45,13 @@ pub fn initialize(heap_memory: &'static mut [MaybeUninit<u8>], debug: bool) {
     let mut nrf51_peripherals = Peripherals::take().unwrap();
     let mut cortex_m_peripherals = cortex_m::Peripherals::take().unwrap();
 
+    // Safety: heap_memory is a valid pointer by the safety requirements of this function
+    assert!(!unsafe{(*heap_memory).is_empty()});
     // Safety: `init` is safe when
     // * only called once --> the global INITIALIZED flag is set, and we panic above if called twice
     // * Heap is not empty, see the assert
-    assert!(!heap_memory.is_empty());
-    unsafe { ALLOCATOR.init(heap_memory.as_ptr().addr(), heap_memory.len()) }
+    // * heap_memory is a valid pointer by the safety requirements of this function
+    unsafe { ALLOCATOR.init(heap_memory.addr(), (*heap_memory).len()) }
 
     let gpio = nrf51_hal::gpio::p0::Parts::new(nrf51_peripherals.GPIO);
     led::initialize(gpio.p0_22, gpio.p0_24, gpio.p0_28, gpio.p0_30);

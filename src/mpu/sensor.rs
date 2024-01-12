@@ -7,8 +7,7 @@ use crate::mpu::structs::{Accel, Gyro};
 use crate::time::delay_ms_assembly;
 use crate::twi::TwiWrapper;
 use core::marker::PhantomData;
-use core::time::Duration;
-use embedded_hal::blocking::i2c::{Write, WriteRead};
+use embedded_hal::i2c::I2c as _;
 
 const MPU6050_ADDRESS: u8 = 0x68;
 
@@ -19,7 +18,7 @@ pub(crate) struct Mpu6050(PhantomData<()>);
 impl Mpu6050 {
     /// Construct a new i2c driver for the MPU-6050
     pub fn new(i2c: &mut I2c) -> Self {
-        let mut sensor = Self(PhantomData::default());
+        let mut sensor = Self(PhantomData);
 
         sensor.disable_sleep(i2c);
 

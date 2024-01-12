@@ -2,7 +2,7 @@ use crate::mutex::Mutex;
 use crate::once_cell::OnceCell;
 use cortex_m::peripheral::NVIC;
 use nrf51_pac::interrupt;
-use ringbuffer::{ConstGenericRingBuffer, RingBuffer, RingBufferRead, RingBufferWrite};
+use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
 
 const BUFFER_SIZE: usize = 256;
 
