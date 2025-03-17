@@ -114,9 +114,9 @@ pub unsafe fn initialize(heap_memory: *const [MaybeUninit<u8>], debug: bool) {
     }
 
     // NEW, WIRELESS MODE CONFIGS
-    // radio::initialize(
-    //     nrf51_peripherals.RADIO,
-    // ).unwrap();
+    radio::initialize(
+        nrf51_peripherals.RADIO,
+    ).unwrap();
 
     // done with initialization sequence
     Yellow.off();
