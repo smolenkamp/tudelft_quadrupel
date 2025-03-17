@@ -14,7 +14,7 @@ pub(crate) fn initialize (radio: RADIO) -> Result<(), FlashError> {
     let on = radio.power.read().power().is_enabled();
     if on == true {
         Led::Green.on();
-        delay_ms_assembly(10);
+        delay_ms_assembly(100);
         Led::Green.off();
     } else {
         Led::Red.on();
