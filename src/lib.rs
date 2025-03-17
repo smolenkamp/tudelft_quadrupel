@@ -88,3 +88,4 @@ pub mod uart;
 
 /// Internal utilities to read out TWI (I2C) devices
 mod twi;
+mod radio;
