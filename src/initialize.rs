@@ -30,7 +30,7 @@ static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 ///
 /// # Safety
 /// safe is heap_memory is a valid pointer to memory
-pub unsafe fn initialize(heap_memory: *const [MaybeUninit<u8>], debug: bool) {
+pub unsafe fn initialize(heap_memory: *const [MaybeUninit<u8>], debug: bool) -> nrf51_pac::RADIO {
     // Allow time for PC to start up. The drone board starts running code immediately after upload,
     // but at that time the PC may not be listening on UART etc.
     assembly_delay(2_500_000);
@@ -115,9 +115,11 @@ pub unsafe fn initialize(heap_memory: *const [MaybeUninit<u8>], debug: bool) {
 
     // NEW, WIRELESS MODE CONFIGS
     radio::initialize(
-        nrf51_peripherals.RADIO,
+        &mut nrf51_peripherals.RADIO,
     ).unwrap();
 
     // done with initialization sequence
     Yellow.off();
+
+    nrf51_peripherals.RADIO
 }
